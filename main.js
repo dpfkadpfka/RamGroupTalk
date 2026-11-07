@@ -1,5 +1,5 @@
 // RamGroupTalk — 카톡 단톡방 자동 저장·정리 위젯 (만든 사람: 김예람)
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { execFile } = require("child_process");
@@ -121,6 +121,25 @@ ipcMain.handle("file:read", (_e, p) => fs.readFileSync(p, "utf8"));
 ipcMain.handle("ai:json", async (_e, prompt) => {
   try { return { ok: true, value: await gemini(prompt) }; }
   catch (e) { return { ok: false, code: e.code || "upstream_error", message: String(e.message || e) }; }
+});
+ipcMain.handle("key:test", async (_e, key, model) => {
+  const k = String(key || "").startsWith("••••") ? conf.geminiKey : String(key || "").trim();
+  if (!k) return { ok: false, code: "bad_key", message: "" };
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model || conf.model || "gemini-flash-latest")}:generateContent?key=${encodeURIComponent(k)}`;
+  try {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ok" }] }], generationConfig: { maxOutputTokens: 5 } }) });
+    if (r.ok || r.status === 429) { conf.geminiKey = k; saveConf(); }
+    if (r.ok) return { ok: true, masked: "••••" + k.slice(-4) };
+    const j = await r.json().catch(() => ({}));
+    return { ok: false, code: r.status === 429 ? "rate_limited" : (r.status === 400 || r.status === 403) ? "bad_key" : "upstream_error", message: (j.error && j.error.message) || ("HTTP " + r.status) };
+  } catch (e) { return { ok: false, code: "network", message: "인터넷 연결을 확인해 주세요" }; }
+});
+ipcMain.handle("backup:export", async () => {
+  const d = new Date(), stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const r = await dialog.showSaveDialog(win, { defaultPath: path.join(app.getPath("documents"), `RamGroupTalk-백업-${stamp}.json`), filters: [{ name: "백업", extensions: ["json"] }] });
+  if (r.canceled || !r.filePath) return { ok: false };
+  fs.writeFileSync(r.filePath, JSON.stringify({ ramgrouptalk: "backup", version: 1, docs: readJson(DATA_FILE, {}) }, null, 1), "utf8");
+  return { ok: true };
 });
 ipcMain.handle("open:url", (_e, u) => { if (/^https?:/.test(u)) shell.openExternal(u); });
 ipcMain.handle("open:folder", () => { fs.mkdirSync(conf.exportDir, { recursive: true }); shell.openPath(conf.exportDir); });

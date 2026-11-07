@@ -59,7 +59,12 @@ $kakao = Get-Process KakaoTalk -ErrorAction SilentlyContinue
 if (-not $kakao) { $result.errors += @{ room = ""; msg = "카카오톡 PC가 켜져 있지 않아요" }; Done }
 $pids = @($kakao | ForEach-Object { $_.Id })
 function KWins { [W32]::List() | Where-Object { $pids -contains [int]$_[1] -and $_[4] -eq "1" } }
-function FindRoom($name) { KWins | Where-Object { $_[3] -ne "#32770" -and ($_[2] -eq $name) } | Select-Object -First 1 }
+function FindRoom($name) {
+  $ws = @(KWins | Where-Object { $_[3] -ne "#32770" -and $_[2] -ne "카카오톡" -and $_[2] })
+  $hit = $ws | Where-Object { $_[2] -eq $name } | Select-Object -First 1
+  if (-not $hit) { $hit = $ws | Where-Object { $_[2].Contains($name) } | Select-Object -First 1 }
+  $hit
+}
 function Focus($h) { [W32]::Fg($h); Start-Sleep -Milliseconds 200 }
 function Paste($text) { [System.Windows.Forms.Clipboard]::SetText($text); [System.Windows.Forms.SendKeys]::SendWait("^a"); Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait("^v") }
 

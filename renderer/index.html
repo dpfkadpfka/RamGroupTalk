@@ -144,6 +144,23 @@ body{margin:0}
 .modal .btns{display:flex;justify-content:flex-end;gap:8px}
 .btn{height:38px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--card);font-weight:700;cursor:pointer;color:var(--fg)}
 .btn.pri{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.modal .box.set{width:min(760px,100%);height:min(560px,calc(100vh - 60px));padding:0;flex-direction:row;gap:0;overflow:hidden}
+.stabs{width:190px;flex:none;background:var(--bg);border-right:1px solid var(--line);padding:20px 10px;display:flex;flex-direction:column;gap:2px}
+.stabs h3{margin:0 10px 14px}
+.stab{display:flex;align-items:center;gap:9px;border:0;background:none;padding:9px 12px;border-radius:9px;font-weight:600;font-size:.9rem;color:var(--muted);cursor:pointer;text-align:left}
+.stab:hover{background:var(--hover);color:var(--fg)}
+.stab.on{background:var(--card);color:var(--fg);box-shadow:var(--sh);font-weight:700}
+.spane{flex:1;min-width:0;display:flex;flex-direction:column}
+.sp{flex:1;overflow:auto;padding:24px 26px;display:flex;flex-direction:column;gap:18px}
+.sp h4{margin:0 0 2px;font-size:1.05rem;font-weight:800}
+.spane .btns{padding:14px 26px;border-top:1px solid var(--line)}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:.86rem}
+.fld small{color:var(--muted);line-height:1.5}
+.seg{display:inline-flex;background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:3px;width:max-content}
+.seg button{border:0;background:none;padding:6px 16px;border-radius:7px;font-weight:600;font-size:.86rem;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--card);color:var(--fg);box-shadow:var(--sh)}
+.kmsg{font-weight:600!important}
+@media (max-width:620px){.modal .box.set{flex-direction:column;height:auto}.stabs{width:auto;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:10px}.stabs h3{display:none}.stab{white-space:nowrap}}
 .lnk{color:#3b82f6;cursor:pointer;text-decoration:underline;background:none;border:0;padding:0;font:inherit;font-weight:600}
 @media (max-width:860px){
   .app{grid-template-columns:minmax(0,1fr)}
@@ -190,16 +207,41 @@ body{margin:0}
   </section>
 </div>
 <div class="toast" id="toast" hidden></div>
-<div class="modal" id="setmodal" hidden><div class="box">
-  <h3>설정</h3>
-  <label>가져올 단톡방 이름<small>한 줄에 하나씩, 카톡에 보이는 방 이름과 똑같이 적어 주세요. 일반 채팅·오픈채팅 어느 쪽이든 자동으로 찾아요.</small><textarea id="s-rooms" placeholder="영상독학&#10;[정보] 코난쌤"></textarea></label>
-  <label>제미나이 API 키 (무료)<small>구글 계정으로 무료 발급: <button class="lnk" type="button" id="s-keylink">aistudio.google.com/apikey</button> 에서 [Create API key] → 복사해서 붙여 넣기. 무료 등급은 구글이 서비스 개선에 입력 내용을 쓸 수 있어요.</small><input type="password" id="s-key" placeholder="AIza..."></label>
-  <label>매일 자동으로 가져올 시각<small>비워 두면 자동으로 가져오지 않아요. 그 시각에 컴퓨터와 카톡이 켜져 있어야 해요.</small><input type="time" id="s-time"></label>
-  <label>대화 저장 폴더<span class="row"><input type="text" id="s-dir"><button class="btn" type="button" id="s-open">열기</button></span></label>
-  <label class="chk"><input type="checkbox" id="s-top">항상 다른 창 위에 두기</label>
-  <label class="chk"><input type="checkbox" id="s-login">윈도우 켤 때 자동 실행</label>
-  <label>AI 모델<small>보통은 바꿀 필요 없어요.</small><input type="text" id="s-model"></label>
-  <div class="btns"><button class="btn" type="button" id="s-cancel">취소</button><button class="btn pri" type="button" id="s-save">저장</button></div>
+<div class="modal" id="setmodal" hidden><div class="box set">
+  <aside class="stabs" role="tablist">
+    <h3>설정</h3>
+    <button type="button" class="stab on" data-tab="kakao"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.3A8 8 0 1 1 21 12z"/></svg>카톡 가져오기</button>
+    <button type="button" class="stab" data-tab="ai"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2"/><circle cx="12" cy="12" r="3"/></svg>AI 요약</button>
+    <button type="button" class="stab" data-tab="look"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 1 0 0 20c1 0 1.6-.8 1.6-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16a6 6 0 0 0 6-6C22 6 17.5 2 12 2z"/></svg>화면·디자인</button>
+    <button type="button" class="stab" data-tab="data"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>데이터·백업</button>
+  </aside>
+  <div class="spane">
+    <section class="sp" data-pane="kakao">
+      <h4>카톡 가져오기</h4>
+      <label>가져올 단톡방 이름<small>한 줄에 하나씩 적어 주세요. 이름 일부만 적어도 돼요(예: 코난쌤). 다른 방과 겹치지 않을 만큼만 적으면 되고, 일반 채팅·오픈채팅 어느 쪽이든 자동으로 찾아요.</small><textarea id="s-rooms"></textarea></label>
+      <label>매일 자동으로 가져올 시각<small>비워 두면 자동으로 가져오지 않아요. 그 시각에 컴퓨터와 카톡이 켜져 있어야 해요.</small><input type="time" id="s-time"></label>
+      <label>대화 저장 폴더<span class="row"><input type="text" id="s-dir"><button class="btn" type="button" id="s-open">열기</button></span></label>
+    </section>
+    <section class="sp" data-pane="ai" hidden>
+      <h4>AI 요약</h4>
+      <label>제미나이 API 키 (무료)<small>구글 계정으로 무료 발급: <button class="lnk" type="button" id="s-keylink">aistudio.google.com/apikey</button> 에서 [Create API key] → 복사해서 붙여 넣고 [확인]. 무료 등급은 구글이 서비스 개선에 입력 내용을 쓸 수 있어요.</small><span class="row"><input type="password" id="s-key" placeholder="AIza..."><button class="btn pri" type="button" id="s-keyok">확인</button></span><small id="s-keymsg" class="kmsg"></small></label>
+      <label>AI 모델<small>보통은 바꿀 필요 없어요.</small><input type="text" id="s-model"></label>
+    </section>
+    <section class="sp" data-pane="look" hidden>
+      <h4>화면·디자인</h4>
+      <div class="fld"><b>테마</b><div class="seg" id="s-theme"><button type="button" data-v="auto">자동</button><button type="button" data-v="light">밝게</button><button type="button" data-v="dark">어둡게</button></div></div>
+      <div class="fld"><b>글자 크기</b><div class="seg" id="s-size"><button type="button" data-v="14">작게</button><button type="button" data-v="15">보통</button><button type="button" data-v="16.5">크게</button></div></div>
+      <div class="fld"><b>주제 색</b><small>사이드바에서 주제 옆 색 동그라미를 누르면 바꿀 수 있어요. 주제와 카드는 끌어서 순서를 바꿔요.</small></div>
+      <label class="chk"><input type="checkbox" id="s-top">항상 다른 창 위에 두기</label>
+      <label class="chk"><input type="checkbox" id="s-login">윈도우 켤 때 자동 실행</label>
+    </section>
+    <section class="sp" data-pane="data" hidden>
+      <h4>데이터·백업</h4>
+      <div class="fld"><b>백업 불러오기</b><small>RamGroupTalk 백업 파일(.json)을 불러와 지금 목록에 합쳐요. 파일을 창에 끌어다 놓아도 돼요.</small><span class="row"><button class="btn" type="button" id="s-imp">백업 파일 고르기</button><input type="file" id="s-impf" accept=".json,application/json" hidden></span></div>
+      <div class="fld"><b>백업 저장하기</b><small>정리된 내용 전체를 파일 하나로 저장해요. 다른 컴퓨터로 옮길 때 써요.</small><span class="row"><button class="btn" type="button" id="s-exp">백업 파일 저장</button></span></div>
+    </section>
+    <div class="btns"><button class="btn" type="button" id="s-cancel">취소</button><button class="btn pri" type="button" id="s-save">저장</button></div>
+  </div>
 </div></div>
 
 <div class="drop" id="drop" hidden><div>카톡 파일을 여기에 놓으세요<small>txt 여러 개도 한 번에 돼요</small></div></div>
@@ -448,7 +490,7 @@ let dragN=0;
 window.addEventListener("dragenter",e=>{if([...(e.dataTransfer?.types||[])].includes("Files")){dragN++;$("drop").hidden=false;}});
 window.addEventListener("dragleave",()=>{dragN=Math.max(0,dragN-1);if(!dragN)$("drop").hidden=true;});
 window.addEventListener("dragover",e=>{e.preventDefault();});
-window.addEventListener("drop",e=>{e.preventDefault();dragN=0;$("drop").hidden=true;if(e.dataTransfer?.files?.length)importFiles(e.dataTransfer.files);});
+window.addEventListener("drop",e=>{e.preventDefault();dragN=0;$("drop").hidden=true;if(e.dataTransfer?.files?.length){const fs=[...e.dataTransfer.files],js=fs.filter(f=>/\.json$/i.test(f.name));js.forEach(importBackup);const tx=fs.filter(f=>!/\.json$/i.test(f.name));if(tx.length)importFiles(tx);}});
 
 let drag=null;
 const board0=document.getElementById("board");
@@ -524,16 +566,43 @@ RT.onRunExport(autoExport);
 async function openSettings(){
   const c=await RT.getConf();
   $("s-rooms").value=(c.rooms||[]).join("\n");$("s-key").value=c.geminiKey||"";$("s-time").value=c.dailyTime||"";
-  $("s-dir").value=c.exportDir||"";$("s-top").checked=!!c.alwaysOnTop;$("s-login").checked=!!c.openAtLogin;$("s-model").value=c.model||"";
+  $("s-dir").value=c.exportDir||"";$("s-top").checked=!!c.alwaysOnTop;$("s-login").checked=!!c.openAtLogin;$("s-model").value=c.model||"";$("s-keymsg").textContent="";
+  segSet("s-theme",c.theme||"auto");segSet("s-size",String(c.fontSize||15));
+  showTab(!c.rooms.length?"kakao":!c.hasKey?"ai":"kakao");
   $("setmodal").hidden=false;
 }
+function showTab(t){document.querySelectorAll(".stab").forEach(b=>b.classList.toggle("on",b.dataset.tab===t));document.querySelectorAll(".sp").forEach(p=>p.hidden=p.dataset.pane!==t);}
+document.querySelectorAll(".stab").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+function segSet(id,v){$(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));}
+const segGet=id=>($(id).querySelector("button.on")||{}).dataset?.v;
+["s-theme","s-size"].forEach(id=>$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;segSet(id,b.dataset.v);applyLook(segGet("s-theme"),segGet("s-size"));}));
+function applyLook(theme,size){const r=document.documentElement;if(theme&&theme!=="auto")r.dataset.theme=theme;else delete r.dataset.theme;document.body.style.fontSize=(size||15)+"px";}
+RT.getConf().then(c=>applyLook(c.theme,c.fontSize));
+$("s-imp").onclick=()=>$("s-impf").click();
+$("s-impf").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";if(f)await importBackup(f);});
+$("s-exp").onclick=async()=>{const r=await RT.exportBackup();if(r&&r.ok)toast("백업을 저장했어요");};
+async function importBackup(f){
+  let j;try{j=JSON.parse(await f.text());}catch{toast("백업 파일을 읽지 못했어요");return;}
+  const docs=j&&j.docs;if(!docs||typeof docs!=="object"){toast("RamGroupTalk 백업 파일이 아니에요");return;}
+  let n=0;for(const [p,d] of Object.entries(docs)){if(!/^(items|meta|settings)\/[^/]+$/.test(p)||!d||typeof d!=="object")continue;await db.doc(p).set(d);if(p.startsWith("items/"))n++;}
+  $("setmodal").hidden=true;toast(`백업에서 ${n}개를 불러왔어요`);
+}
 $("setbtn").onclick=openSettings;
-$("s-cancel").onclick=()=>{$("setmodal").hidden=true;};
+$("s-cancel").onclick=()=>{$("setmodal").hidden=true;RT.getConf().then(c=>applyLook(c.theme,c.fontSize));};
 $("s-keylink").onclick=()=>RT.openUrl("https://aistudio.google.com/apikey");
 $("s-open").onclick=()=>RT.openFolder();
+$("s-keyok").onclick=async()=>{
+  const b=$("s-keyok"),m=$("s-keymsg"),k=$("s-key").value.trim();
+  if(!k){m.textContent="키를 먼저 붙여 넣어 주세요";m.style.color="#c2410c";return;}
+  b.disabled=true;m.style.color="";m.textContent="확인하는 중…";
+  const r=await RT.testKey(k,$("s-model").value.trim());
+  b.disabled=false;
+  if(r.ok){m.textContent="✓ 키가 맞아요. 저장했어요";m.style.color="#15803d";$("s-key").value=r.masked;}
+  else{m.textContent="✕ "+(r.code==="bad_key"?"키가 맞지 않아요. 다시 복사해 붙여 넣어 주세요":r.code==="rate_limited"?"키는 맞지만 지금 사용량이 많아요. 잠시 뒤 다시 해 보세요":"확인하지 못했어요: "+r.message);m.style.color="#c2410c";}
+};
 $("s-save").onclick=async()=>{
   const rooms=$("s-rooms").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  await RT.setConf({rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
+  await RT.setConf({theme:segGet("s-theme")||"auto",fontSize:+(segGet("s-size")||15),rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
   $("setmodal").hidden=true;syncPin();toast("설정을 저장했어요");
 };
 RT.getConf().then(c=>{if(!c.rooms.length||!c.hasKey)setTimeout(openSettings,600);});
