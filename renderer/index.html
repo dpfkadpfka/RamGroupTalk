@@ -227,9 +227,45 @@ body{margin:0}
 .sbar .sp2{flex:1}
 .toast{bottom:calc(var(--sb) + 16px)}
 .job{bottom:calc(var(--sb) + 14px)}
-@media (max-width:860px){.tb .brand{width:auto}.tb .brand b{display:none}.app{grid-template-columns:minmax(0,1fr)}.side{height:auto!important;display:grid!important;grid-template-columns:1fr 1fr auto;gap:6px 8px;overflow:visible;padding:10px 12px!important}
-  .side .slbl{display:none}.side .go,.side .up{margin:0;height:34px}.side .navs{grid-column:1/-1}
-  .sfoot{grid-column:3;grid-row:1;margin:0;border:0;padding:0}.setbtn{height:34px;padding:0 10px;width:auto}}
+@media (max-width:860px){.tb .brand{width:auto}.tb .brand b{display:none}.app{grid-template-columns:minmax(0,1fr)}.side{height:auto!important;display:block!important;overflow:visible}
+  .side .slbl{display:none}.sgrp{padding:8px 12px}.sgrp:first-child{display:flex;gap:8px}.sgrp:first-child .go,.sgrp:first-child .up{margin:0;height:34px;flex:1}
+  .sgrp .navs{flex-direction:row!important;flex-wrap:wrap;gap:6px}.sgrp .navs .it{height:30px}.sfoot{display:none}}
+
+/* 핵심 색 고르기 */
+.accs{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.accs button{width:28px;height:28px;border-radius:50%;border:0;cursor:pointer;box-shadow:0 0 0 2px var(--card),0 0 0 3px transparent;transition:transform .12s,box-shadow .12s}
+.accs button:hover{transform:scale(1.08)}
+.accs button[aria-pressed="true"]{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--fg)}
+.accc{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;font-size:.8rem!important;font-weight:600!important;color:var(--muted);margin-top:6px}
+.accc input{width:36px;height:26px;border:1px solid var(--line);border-radius:6px;padding:1px;background:none;cursor:pointer}
+:root[data-theme="dark"]{--accbg:var(--accbgd,#18223a)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--accbg:var(--accbgd,#18223a)}}
+.seg button.on{color:var(--acc)}
+.stab.on{color:var(--acc)}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.modal input:focus,.modal textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 16%,transparent)}
+/* 고정 핀: 평소엔 눕고, 누르면 섬 */
+.wc .pin svg{transform:rotate(45deg);transition:transform .2s ease}
+.wc .pin[aria-pressed="true"] svg{transform:rotate(0)}
+.wc .pin[aria-pressed="true"] svg path{fill:currentColor}
+/* 사이드바 정돈: 묶음마다 구분선, 일정한 간격 */
+.side{padding:0!important;gap:0}
+.sgrp{padding:12px 12px;border-bottom:1px solid var(--line)}
+.sgrp.grow{flex:1;min-height:0;overflow:auto;border-bottom:0}
+.sgrp .slbl{margin:0 4px 8px}
+.sgrp .go{margin:0 0 6px}
+.sgrp .up{margin:0}
+.sgrp .navs{display:flex;flex-direction:column;gap:2px}
+.it{height:34px;padding:0 10px}
+.it.rm{margin-bottom:0;background:color-mix(in srgb,var(--c) 9%,transparent);color:color-mix(in srgb,var(--c) 62%,var(--fg));font-weight:600}
+.it.rm:hover{background:color-mix(in srgb,var(--c) 15%,transparent)}
+.sgrp .navs#rooms{gap:4px}
+.it.rm em,.it em{color:var(--faint);font-weight:500;opacity:1}
+.it.rm[aria-pressed="true"]{background:var(--c);color:#fff;font-weight:700}
+.it.rm[aria-pressed="true"] em{color:#fff;opacity:.85}
+.it.rm[aria-pressed="true"] .sw{box-shadow:0 0 0 1.5px #fff}
+.sw{width:10px;height:10px;border-radius:3px}
+.sfoot{padding:6px 12px!important;border-top:1px solid var(--line)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -237,7 +273,7 @@ body{margin:0}
   <div class="brand"><img src="icon.png" alt="" width="18" height="18"><b>RamGroupTalk</b></div>
   <div class="tbmid"><label class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" type="search" placeholder="정리한 내용 검색" aria-label="검색"></label></div>
   <div class="wc">
-    <button class="pin" id="pinbtn" title="항상 위에 두기" aria-pressed="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3z"/></svg></button>
+    <button class="pin" id="pinbtn" title="항상 위에 두기" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3z"/></svg></button>
     <i class="wsep"></i>
     <button id="minbtn" title="최소화"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor" stroke-width="1"/></svg></button>
     <button id="maxbtn" title="최대화"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/></svg></button>
@@ -246,13 +282,11 @@ body{margin:0}
 </div>
 <div class="app">
   <aside class="side">
-    <div class="slbl">가져오기</div>
+    <div class="sgrp"><div class="slbl">가져오기</div>
     <button class="go" id="gobtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>지금 카톡 가져오기</button>
-    <button class="up" id="upbtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>카톡 파일 올리기</button><input type="file" id="upfile" accept=".txt,text/plain" multiple hidden>
-    <div class="slbl">보기</div>
-    <div class="navs" id="views"></div>
-    <div class="slbl">주제 <span title="주제 왼쪽 색을 누르면 색을 바꿔요. 끌어서 순서를 바꿔요.">색·순서 바꾸기 가능</span></div>
-    <div class="navs" id="rooms"></div>
+    <button class="up" id="upbtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>카톡 파일 올리기</button><input type="file" id="upfile" accept=".txt,text/plain" multiple hidden></div>
+    <div class="sgrp"><div class="slbl">보기</div><div class="navs" id="views"></div></div>
+    <div class="sgrp grow"><div class="slbl">주제 <span title="주제 앞 색 네모를 누르면 색을 바꿔요. 끌어서 순서를 바꿔요.">색 네모 눌러 색 변경</span></div><div class="navs" id="rooms"></div></div>
     <div class="sfoot"><button class="setbtn" id="setbtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>설정</button></div>
   </aside>
   <section class="main">
@@ -290,7 +324,8 @@ body{margin:0}
       <h4>화면·디자인</h4>
       <div class="fld"><b>테마</b><div class="seg" id="s-theme"><button type="button" data-v="auto">자동</button><button type="button" data-v="light">밝게</button><button type="button" data-v="dark">어둡게</button></div></div>
       <div class="fld"><b>글자 크기</b><div class="seg" id="s-size"><button type="button" data-v="14">작게</button><button type="button" data-v="15">보통</button><button type="button" data-v="16.5">크게</button></div></div>
-      <div class="fld"><b>주제 색</b><small>사이드바에서 주제 옆 색 동그라미를 누르면 바꿀 수 있어요. 주제와 카드는 끌어서 순서를 바꿔요.</small></div>
+      <div class="fld"><b>핵심 색</b><small>가져오기 버튼, 선택된 메뉴, 강조 표시에 쓰는 색이에요.</small><div class="accs" id="s-acc"></div><label class="accc">직접 고르기 <input type="color" id="s-accc"></label></div>
+      <div class="fld"><b>주제 색</b><small>왼쪽 주제 이름 앞 색 네모를 누르면 바꿀 수 있어요. 주제와 카드는 끌어서 순서를 바꿔요.</small></div>
       <label class="chk"><input type="checkbox" id="s-top">항상 다른 창 위에 두기</label>
       <label class="chk"><input type="checkbox" id="s-login">윈도우 켤 때 자동 실행</label>
       <label class="chk"><input type="checkbox" id="s-tray">닫기(✕) 눌러도 트레이에서 계속 실행 <small style="font-weight:500;color:var(--muted)">— 매일 자동 가져오기를 쓰면 켜 두세요</small></label>
@@ -632,7 +667,7 @@ async function openSettings(){
   const c=await RT.getConf();
   $("s-rooms").value=(c.rooms||[]).join("\n");$("s-key").value=c.geminiKey||"";$("s-time").value=c.dailyTime||"";
   $("s-dir").value=c.exportDir||"";$("s-top").checked=!!c.alwaysOnTop;$("s-login").checked=!!c.openAtLogin;$("s-tray").checked=!!c.closeToTray;$("s-model").value=c.model||"";$("s-keymsg").textContent="";
-  segSet("s-theme",c.theme||"auto");segSet("s-size",String(c.fontSize||15));
+  accSel=c.accent||ACCS[0];accRender();segSet("s-theme",c.theme||"auto");segSet("s-size",String(c.fontSize||15));
   showTab(!c.rooms.length?"kakao":!c.hasKey?"ai":"kakao");
   $("setmodal").hidden=false;
 }
@@ -641,8 +676,15 @@ document.querySelectorAll(".stab").forEach(b=>b.onclick=()=>showTab(b.dataset.ta
 function segSet(id,v){$(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));}
 const segGet=id=>($(id).querySelector("button.on")||{}).dataset?.v;
 ["s-theme","s-size"].forEach(id=>$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;segSet(id,b.dataset.v);applyLook(segGet("s-theme"),segGet("s-size"));}));
+const ACCS=["#2563eb","#4f46e5","#7c3aed","#0891b2","#0d9488","#16a34a","#db2777","#e11d48","#ea580c","#334155"];
+function mix(h,w,a){const n=x=>parseInt(h.slice(x,x+2),16),m=x=>Math.round(n(x)*(1-a)+w*a);return "#"+[1,3,5].map(i=>m(i).toString(16).padStart(2,"0")).join("");}
+function applyAccent(c){if(!/^#[0-9a-f]{6}$/i.test(c||""))c=ACCS[0];const r=document.documentElement.style;r.setProperty("--acc",c);r.setProperty("--acc2",mix(c,0,.15));r.setProperty("--accbg",mix(c,255,.9));r.setProperty("--accbgd",mix(c,17,.82));}
+let accSel=ACCS[0];
+function accRender(){$("s-acc").innerHTML=ACCS.map(c=>`<button type="button" style="background:${c}" data-c="${c}" aria-pressed="${c===accSel}" title="${c}"></button>`).join("");$("s-accc").value=accSel;}
+$("s-acc").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;accSel=b.dataset.c;accRender();applyAccent(accSel);});
+$("s-accc").addEventListener("input",e=>{accSel=e.target.value;accRender();applyAccent(accSel);});
 function applyLook(theme,size){const r=document.documentElement;if(theme&&theme!=="auto")r.dataset.theme=theme;else delete r.dataset.theme;document.body.style.fontSize=(size||15)+"px";}
-RT.getConf().then(c=>applyLook(c.theme,c.fontSize));
+RT.getConf().then(c=>{applyLook(c.theme,c.fontSize);applyAccent(c.accent);});
 $("s-imp").onclick=()=>$("s-impf").click();
 $("s-impf").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";if(f)await importBackup(f);});
 $("s-exp").onclick=async()=>{const r=await RT.exportBackup();if(r&&r.ok)toast("백업을 저장했어요");};
@@ -653,7 +695,7 @@ async function importBackup(f){
   $("setmodal").hidden=true;toast(`백업에서 ${n}개를 불러왔어요`);
 }
 $("setbtn").onclick=openSettings;
-$("s-cancel").onclick=()=>{$("setmodal").hidden=true;RT.getConf().then(c=>applyLook(c.theme,c.fontSize));};
+$("s-cancel").onclick=()=>{$("setmodal").hidden=true;RT.getConf().then(c=>{applyLook(c.theme,c.fontSize);applyAccent(c.accent);});};
 $("s-keylink").onclick=()=>RT.openUrl("https://aistudio.google.com/apikey");
 $("s-open").onclick=()=>RT.openFolder();
 $("s-keyok").onclick=async()=>{
@@ -667,7 +709,7 @@ $("s-keyok").onclick=async()=>{
 };
 $("s-save").onclick=async()=>{
   const rooms=$("s-rooms").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  await RT.setConf({theme:segGet("s-theme")||"auto",fontSize:+(segGet("s-size")||15),rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,closeToTray:$("s-tray").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
+  await RT.setConf({accent:accSel,theme:segGet("s-theme")||"auto",fontSize:+(segGet("s-size")||15),rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,closeToTray:$("s-tray").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
   $("setmodal").hidden=true;syncPin();toast("설정을 저장했어요");
 };
 RT.getConf().then(c=>{if(!c.rooms.length||!c.hasKey)setTimeout(openSettings,600);});
