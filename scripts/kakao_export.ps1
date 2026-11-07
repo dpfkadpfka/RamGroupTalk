@@ -17,6 +17,7 @@ public class W32 {
   [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint dx, uint dy, uint d, UIntPtr e);
   [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
@@ -72,22 +73,40 @@ function FindRoom($name) {
 function Focus($h) { [W32]::Fg($h); Start-Sleep -Milliseconds 200 }
 function Paste($text) { [System.Windows.Forms.Clipboard]::SetText($text); [System.Windows.Forms.SendKeys]::SendWait("^a"); Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait("^v") }
 
-# 방이 안 열려 있으면: 카톡 메인 창에서 통합검색(Ctrl+F) → 방 이름 붙여넣기 → Enter (좌표 클릭 없음)
+# 방이 안 열려 있으면: 카톡 메인 창 → 왼쪽 채팅 아이콘 → 검색칸에 이름 → 없으면 오픈채팅/채팅 머리글로 바꿔 다시 검색
+# 좌표는 100% 배율 기준. 이 스크립트를 DPI 인식으로 돌려 창 위치(실제 픽셀) × 배율로 계산함
+[W32]::SetProcessDPIAware() | Out-Null
 function MainWin { KWins | Where-Object { $_[2] -eq "카카오톡" -and $_[3] -ne "#32770" } | Select-Object -First 1 }
-function WaitRoom($name) { for ($i = 0; $i -lt 10; $i++) { Start-Sleep -Milliseconds 250; $w = FindRoom $name; if ($w) { return $w } }; return $null }
-function TryOpen($name) {
-  $m = MainWin; if (-not $m) { return $null }
-  $mh = [IntPtr][long]$m[0]; Focus $mh
-  [W32]::CtrlKey(0x32); Start-Sleep -Milliseconds 400      # Ctrl+2 채팅 탭으로 (친구 탭에 있어도)
-  [W32]::CtrlKey(0x46); Start-Sleep -Milliseconds 500      # Ctrl+F 통합검색
-  if ((MainWin) -and [W32]::GetForegroundWindow() -ne $mh) { return $null }
-  Paste $name; Start-Sleep -Milliseconds 1000
+function MainClick($rx, $ry, [switch]$Double) {
+  $m = MainWin; if (-not $m) { return $false }
+  $h = [IntPtr][long]$m[0]; Focus $h
+  if ([W32]::GetForegroundWindow() -ne $h) { return $false }
+  $r = New-Object W32+RECT; [W32]::GetWindowRect($h, [ref]$r) | Out-Null
+  $s = [W32]::GetDpiForWindow($h) / 96.0; if ($s -le 0) { $s = 1 }
+  $x = [int]($r.L + $rx * $s); $y = [int]($r.T + $ry * $s)
+  if ($x -ge $r.R -or $y -ge $r.B) { return $false }
+  if ($Double) { [W32]::DClick($x, $y) } else { [W32]::Click($x, $y) }
+  Start-Sleep -Milliseconds 350; return $true
+}
+function WaitRoom($name) { for ($i = 0; $i -lt 8; $i++) { Start-Sleep -Milliseconds 250; $w = FindRoom $name; if ($w) { return $w } }; return $null }
+function SearchHere($name) {
+  if (-not (MainClick 200 103)) { return $null }          # 검색칸 (채팅방, 참여자 검색)
+  Paste $name; Start-Sleep -Milliseconds 900
   [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
   $w = WaitRoom $name; if ($w) { return $w }
-  if ([W32]::GetForegroundWindow() -eq $mh) { [System.Windows.Forms.SendKeys]::SendWait("{DOWN}"); Start-Sleep -Milliseconds 150; [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") }
+  MainClick 230 205 -Double | Out-Null                    # 검색 결과 첫 줄
   return (WaitRoom $name)
 }
-function ClearSearch { $m = MainWin; if ($m) { $mh = [IntPtr][long]$m[0]; Focus $mh; if ([W32]::GetForegroundWindow() -eq $mh) { [System.Windows.Forms.SendKeys]::SendWait("{ESC}"); Start-Sleep -Milliseconds 150; [System.Windows.Forms.SendKeys]::SendWait("{ESC}") } } }
+function ClearSearch { if (MainClick 200 103) { [System.Windows.Forms.SendKeys]::SendWait("^a{BACKSPACE}") } }
+function TryOpen($name) {
+  if (-not (MainClick 38 118)) { return $null }          # 왼쪽 말풍선(채팅) 아이콘
+  $w = SearchHere $name; if ($w) { return $w }           # 지금 보이는 목록(채팅 또는 오픈채팅)에서
+  ClearSearch; MainClick 195 57 | Out-Null               # 오픈채팅 머리글
+  $w = SearchHere $name; if ($w) { return $w }
+  ClearSearch; MainClick 115 57 | Out-Null               # 채팅 머리글
+  $w = SearchHere $name; if ($w) { return $w }
+  return $null
+}
 
 foreach ($room in $rooms) {
   $name = [string]$room
