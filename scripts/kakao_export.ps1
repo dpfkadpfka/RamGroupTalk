@@ -75,57 +75,72 @@ function Focus($h) { [W32]::Fg($h); Start-Sleep -Milliseconds 200 }
 # 주의: 카톡 메인 창에서 Ctrl+A는 '친구 추가'라서 쓰지 않음 (End → Shift+Home 으로 지우기)
 function Paste($text) { [System.Windows.Forms.Clipboard]::SetText($text); [System.Windows.Forms.SendKeys]::SendWait("{END}+{HOME}{BACKSPACE}"); Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait("^v") }
 
-# 방이 안 열려 있으면: 카톡 메인 창 → 왼쪽 채팅 아이콘 → 검색칸에 이름 → 없으면 오픈채팅/채팅 머리글로 바꿔 다시 검색
-# 좌표는 100% 배율 기준. 이 스크립트를 DPI 인식으로 돌려 창 위치(실제 픽셀) × 배율로 계산함
+# 방이 안 열려 있으면 (카톡 PC에서 직접 확인한 순서)
+#  1) 메인 창(숨어 있으면 꺼내기) → 왼쪽 채팅 아이콘
+#  2) Ctrl+F(검색칸 열고 커서) → 방 이름 붙여넣기 → Enter = 지금 보이는 목록(채팅/오픈채팅)에서 첫 결과 열기
+#  3) 못 찾으면 검색칸의 [통합검색] → [채팅] 탭(일반+오픈채팅 모두 나옴) → 첫 결과 더블클릭
+# 좌표는 100% 배율 기준, DPI 인식 상태에서 창 위치(실제 픽셀) × 배율로 계산
 [W32]::SetProcessDPIAware() | Out-Null
-function MainWin { KWins | Where-Object { $_[2] -eq "카카오톡" -and $_[3] -ne "#32770" } | Select-Object -First 1 }
-function MainClick($rx, $ry, [switch]$Double) {
-  $m = MainWin; if (-not $m) { return $false }
-  $h = [IntPtr][long]$m[0]; Focus $h
-  if ([W32]::GetForegroundWindow() -ne $h) { return $false }
-  $r = New-Object W32+RECT; [W32]::GetWindowRect($h, [ref]$r) | Out-Null
-  $s = [W32]::GetDpiForWindow($h) / 96.0; if ($s -le 0) { $s = 1 }
-  $x = [int]($r.L + $rx * $s); $y = [int]($r.T + $ry * $s)
-  $script:dbg += ("{0},{1} -> {2},{3} (창 {4},{5},{6},{7} 배율 {8})" -f $rx, $ry, $x, $y, $r.L, $r.T, $r.R, $r.B, $s)
-  if ($x -ge $r.R -or $y -ge $r.B) { return $false }
+function MainWin {
+  $all = @([W32]::List() | Where-Object { $pids -contains [int]$_[1] -and $_[2] -eq "카카오톡" -and $_[3] -like "EVA_Window*" })
+  $v = $all | Where-Object { $_[4] -eq "1" } | Select-Object -First 1
+  if ($v) { return $v }; return ($all | Select-Object -First 1)
+}
+function MainFocus {
+  $m = MainWin; if (-not $m) { return $null }
+  $h = [IntPtr][long]$m[0]; [W32]::ShowWindow($h, 9) | Out-Null; Start-Sleep -Milliseconds 150; Focus $h
+  if ([W32]::GetForegroundWindow() -ne $h) { return $null }; return $h
+}
+function Scale($h) { $s = [W32]::GetDpiForWindow($h) / 96.0; if ($s -le 0) { $s = 1 }; return $s }
+function ClickIn($h, $rx, $ry, [switch]$FromRight, [switch]$Double) {
+  $r = New-Object W32+RECT; [W32]::GetWindowRect($h, [ref]$r) | Out-Null; $s = Scale $h
+  $x = if ($FromRight) { [int]($r.R - $rx * $s) } else { [int]($r.L + $rx * $s) }; $y = [int]($r.T + $ry * $s)
+  $script:dbg += ("click {0},{1} -> {2},{3} (창 {4},{5},{6},{7} 배율 {8})" -f $rx, $ry, $x, $y, $r.L, $r.T, $r.R, $r.B, $s)
+  if ($x -le $r.L -or $x -ge $r.R -or $y -le $r.T -or $y -ge $r.B) { return $false }
   if ($Double) { [W32]::DClick($x, $y) } else { [W32]::Click($x, $y) }
   Start-Sleep -Milliseconds 350; return $true
 }
-function WaitRoom($name) { for ($i = 0; $i -lt 8; $i++) { Start-Sleep -Milliseconds 250; $w = FindRoom $name; if ($w) { return $w } }; return $null }
-function MainFocus { $m = MainWin; if (-not $m) { return $false }; $h = [IntPtr][long]$m[0]; Focus $h; return ([W32]::GetForegroundWindow() -eq $h) }
-# 검색칸은 돋보기를 눌러야 나옴 → 돋보기 단축키 Ctrl+F 로 열고 바로 입력
-function SearchHere($name) {
-  if (-not (MainFocus)) { return $null }
-  [W32]::CtrlKey(0x46); Start-Sleep -Milliseconds 500
-  Paste $name; Start-Sleep -Milliseconds 1000
-  [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-  $w = WaitRoom $name; if ($w) { return $w }
-  if (MainFocus) { [System.Windows.Forms.SendKeys]::SendWait("{DOWN}"); Start-Sleep -Milliseconds 150; [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") }
-  return (WaitRoom $name)
+function ClickFrac($h, $fx, $fy, [switch]$Double) {
+  $r = New-Object W32+RECT; [W32]::GetWindowRect($h, [ref]$r) | Out-Null
+  $x = [int]($r.L + ($r.R - $r.L) * $fx); $y = [int]($r.T + ($r.B - $r.T) * $fy)
+  $script:dbg += ("frac {0},{1} -> {2},{3}" -f $fx, $fy, $x, $y)
+  if ($Double) { [W32]::DClick($x, $y) } else { [W32]::Click($x, $y) }
+  Start-Sleep -Milliseconds 400
 }
-function ClearSearch { if (MainFocus) { [System.Windows.Forms.SendKeys]::SendWait("{ESC}"); Start-Sleep -Milliseconds 200 } }
-# 방 찾다가 엉뚱한 창(친구 추가 등)이 뜨면 바로 닫고 멈춤
-function StrayCheck($known, $name) {
-  $new = @(KWins | Where-Object { $known -notcontains $_[0] -and $_[2] -ne "카카오톡" -and -not ($_[2] -and $_[2].Contains($name)) })
-  foreach ($w in $new) { [W32]::PostMessage([IntPtr][long]$w[0], 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null }
-  return ($new.Count -gt 0)
+function WaitRoom($name, $n = 8) { for ($i = 0; $i -lt $n; $i++) { Start-Sleep -Milliseconds 250; $w = FindRoom $name; if ($w) { return $w } }; return $null }
+# 엉뚱하게 열린 창(다른 방, 친구 추가 등)은 닫기
+function CloseStray($known, $name, $keep) {
+  foreach ($w in @(KWins | Where-Object { $known -notcontains $_[0] -and $_[2] -ne "카카오톡" -and $_[0] -ne $keep -and -not ($_[2] -and $_[2].Contains($name)) })) {
+    [W32]::PostMessage([IntPtr][long]$w[0], 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null }
 }
 function TryOpen($name) {
   $known = @(KWins | ForEach-Object { $_[0] })
-  if (-not (MainClick 38 118)) { return $null }          # 왼쪽 말풍선(채팅) 아이콘
-  if (StrayCheck $known $name) { return $null }
-  $w = SearchHere $name; if ($w) { return $w }           # 지금 보이는 목록(채팅 또는 오픈채팅)에서
-  if (StrayCheck $known $name) { return $null }
-  ClearSearch; MainClick 200 60 | Out-Null               # 오픈채팅 머리글
-  if (StrayCheck $known $name) { return $null }
-  $w = SearchHere $name; if ($w) { return $w }
-  if (StrayCheck $known $name) { return $null }
-  ClearSearch; MainClick 112 60 | Out-Null               # 채팅 머리글
-  if (StrayCheck $known $name) { return $null }
-  $w = SearchHere $name; if ($w) { return $w }
-  StrayCheck $known $name | Out-Null
+  $h = MainFocus; if (-not $h) { return $null }
+  ClickIn $h 38 118 | Out-Null                          # 왼쪽 말풍선(채팅) 아이콘
+  if (-not (MainFocus)) { return $null }
+  [W32]::CtrlKey(0x46); Start-Sleep -Milliseconds 600   # Ctrl+F: 검색칸 열고 커서
+  Paste $name; Start-Sleep -Milliseconds 900
+  [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+  $w = WaitRoom $name; if ($w) { CloseStray $known $name $w[0]; return $w }
+  CloseStray $known $name ""
+  # 통합검색 (검색칸 오른쪽 끝 버튼)
+  $h = MainFocus; if (-not $h) { return $null }
+  $before = @(KWins | ForEach-Object { $_[0] })
+  ClickIn $h 96 108 -FromRight | Out-Null
+  $sw = $null
+  for ($i = 0; $i -lt 12 -and -not $sw; $i++) { Start-Sleep -Milliseconds 250; $sw = KWins | Where-Object { $before -notcontains $_[0] -and $_[3] -ne "#32770" } | Select-Object -First 1 }
+  if (-not $sw) { $script:dbg += "통합검색 창이 안 열림"; return $null }
+  $sh = [IntPtr][long]$sw[0]; Focus $sh; Start-Sleep -Milliseconds 900
+  ClickFrac $sh 0.216 0.232                             # [채팅] 탭
+  Start-Sleep -Milliseconds 700
+  ClickFrac $sh 0.29 0.373 -Double                      # 첫 결과
+  $w = WaitRoom $name 10
+  [W32]::PostMessage($sh, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null   # 통합검색 창 닫기
+  if ($w) { CloseStray $known $name $w[0]; return $w }
+  CloseStray $known $name ""
   return $null
 }
+function ClearSearch { }
 
 foreach ($room in $rooms) {
   $name = [string]$room

@@ -99,7 +99,7 @@ function runExport() {
       { windowsHide: true, timeout: 10 * 60 * 1000 }, (err) => {
         exportProc = null; clearTimeout(killT); try { globalShortcut.unregister("CommandOrControl+Shift+Q"); } catch {}
         const res = readJson(resultFile, null);
-        if (res) return resolve({ ok: true, ...res });
+        if (res) { try { fs.writeFileSync(path.join(conf.exportDir, "가져오기-기록.txt"), [new Date().toLocaleString("ko-KR"), ...(res.errors || []).map(e => "오류: " + e.room + " - " + e.msg), ...(res.debug || [])].join("\r\n"), "utf8"); } catch {} return resolve({ ok: true, ...res }); }
         resolve({ ok: false, error: err ? String(err.message || err).slice(0, 300) : "결과를 읽지 못했어요" });
       });
   });
