@@ -1,7 +1,7 @@
 {
   "name": "ramgrouptalk",
   "productName": "RamGroupTalk",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "RamGroupTalk",
   "author": "김예람",
   "main": "main.js",
@@ -42,7 +42,8 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "shortcutName": "RamGroupTalk"
+      "shortcutName": "RamGroupTalk",
+      "include": "build/installer.nsh"
     },
     "publish": [
       {

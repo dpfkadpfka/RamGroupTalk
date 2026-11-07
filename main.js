@@ -225,6 +225,11 @@ app.whenReady().then(() => {
   createWindow(); createTray();
   if (app.isPackaged) {
     app.setLoginItemSettings({ openAtLogin: !!conf.openAtLogin });
+    // 업데이트 뒤 처음 켤 때 윈도우 아이콘 캐시 새로 고침
+    if (process.platform === "win32" && conf.iconFix !== app.getVersion()) {
+      conf.iconFix = app.getVersion(); saveConf();
+      execFile(path.join(process.env.WINDIR || "C:\\Windows", "System32", "ie4uinit.exe"), ["-show"], { windowsHide: true }, () => {});
+    }
     setupUpdater(); checkUpdate(false);
     setInterval(() => checkUpdate(false), 6 * 60 * 60 * 1000);
     if (process.platform === "win32") app.setUserTasks([
