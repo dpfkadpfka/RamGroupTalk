@@ -374,12 +374,12 @@ body{margin:0}
 .kseg button.on{border-color:var(--acc);background:var(--accbg);color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
 .sklbl{font-size:.72rem;font-weight:700;color:var(--faint);letter-spacing:.04em;margin:10px 0 2px}
 .skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
-.sk{border:0;background:none;padding:0;cursor:pointer;display:flex;flex-direction:column;gap:5px;text-align:left;color:var(--fg2);font-size:.78rem;font-weight:600}
-.sk .pv{position:relative;height:68px;border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px var(--line2);transition:box-shadow .12s,transform .12s}
+.sk{width:100%;min-width:0;border:0;background:none;padding:0;cursor:pointer;display:flex;flex-direction:column;gap:5px;text-align:left;color:var(--fg2);font-size:.78rem;font-weight:600}
+.sk .pv{display:block;width:100%;position:relative;height:68px;border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px var(--line2);transition:box-shadow .12s,transform .12s}
 .sk:hover .pv{transform:translateY(-1px);box-shadow:0 0 0 1px var(--line2),0 6px 14px rgba(0,0,0,.12)}
 .sk[aria-pressed="true"] .pv{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--acc)}
 .sk[aria-pressed="true"]{color:var(--acc)}
-.pv .ps{position:absolute;left:0;top:0;bottom:0;width:30%}
+.pv span{display:block}.pv .ps{position:absolute;left:0;top:0;bottom:0;width:30%}
 .pv .pg{position:absolute;left:6px;top:7px;width:14%;height:6px;border-radius:3px}
 .pv .pc{position:absolute;left:38%;right:8px;height:16px;border-radius:5px}
 .pv .pc.a{top:10px}.pv .pc.b{top:31px;right:22%}
