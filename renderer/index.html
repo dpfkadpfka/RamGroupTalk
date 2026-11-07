@@ -285,6 +285,27 @@ body{margin:0}
 .sgrp .up{border:1px solid var(--line2)!important;background:var(--card)!important;font-weight:600!important;color:var(--fg2)!important}
 .sgrp .up:hover{background:var(--hover)!important;color:var(--acc)!important;border-color:color-mix(in srgb,var(--acc) 40%,var(--line2))!important}
 .sgrp .up.fold{margin-bottom:0!important}
+
+/* 패들렛처럼: 주제 칸을 옆으로 나란히, 많으면 옆으로 스크롤. 칸 안은 위아래 스크롤 (창 크기와 상관없이) */
+.app{overflow:hidden!important}
+.main{height:calc(100vh - var(--tb) - var(--sb));display:flex;flex-direction:column;overflow:hidden;padding-bottom:10px!important}
+.main .top,.main .dues{flex:none}
+.board{display:flex!important;flex:1;min-height:0;gap:14px;overflow-x:auto;overflow-y:hidden;align-items:stretch;padding-bottom:10px}
+.board>.empty{flex:1}
+.col{flex:0 0 300px;display:flex;flex-direction:column;min-height:0;background:color-mix(in srgb,var(--line) 35%,transparent);border-radius:12px;padding:8px}
+.col .ch{flex:none;margin-bottom:8px}
+.colbody{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:2px 4px 4px 2px;margin-right:-4px}
+.board::-webkit-scrollbar{height:12px}
+.board::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px;border:3px solid var(--bg)}
+.colbody::-webkit-scrollbar{width:8px}
+.colbody::-webkit-scrollbar-thumb{background:transparent;border-radius:8px}
+.col:hover .colbody::-webkit-scrollbar-thumb{background:var(--line2)}
+@media (max-width:860px){
+  .app{display:flex!important;flex-direction:column}
+  .side{flex:none}
+  .main{flex:1;min-height:0;height:auto}
+  .col{flex-basis:min(300px,86vw)}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -448,7 +469,7 @@ function render(){
   board.innerHTML=cols.map(r=>{
     const list=shown.filter(i=>i.room===r).sort(byRank);
     const c=colorOf(r);
-    return `<div class="col" data-col="${esc(r)}"><div class="ch" draggable="${state.canWrite}" data-colh="${esc(r)}" title="끌어서 주제 순서 바꾸기" style="background:${c}"><span class="grip" aria-hidden="true">⋮⋮</span>${esc(r)}<em>${list.length}</em></div>${list.length?list.map(card).join(""):'<div class="colempty">항목 없음</div>'}</div>`;
+    return `<div class="col" data-col="${esc(r)}"><div class="ch" draggable="${state.canWrite}" data-colh="${esc(r)}" title="끌어서 주제 순서 바꾸기" style="background:${c}"><span class="grip" aria-hidden="true">⋮⋮</span>${esc(r)}<em>${list.length}</em></div><div class="colbody">${list.length?list.map(card).join(""):'<div class="colempty">항목 없음</div>'}</div></div>`;
   }).join("");
 }
 function card(i){
@@ -617,6 +638,13 @@ board0.addEventListener("dragstart",e=>{
   else return;
   e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain","x");}catch{}
 });
+board0.addEventListener("wheel",e=>{
+  if(e.ctrlKey)return;
+  const body=e.target.closest(".colbody");
+  if(body&&!e.shiftKey&&body.scrollHeight>body.clientHeight+1)return;   // 칸 안 목록은 위아래로
+  const dx=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;if(!dx)return;
+  e.preventDefault();board0.scrollLeft+=dx;
+},{passive:false});
 board0.addEventListener("dragend",()=>{drag=null;clearPh();document.querySelectorAll(".dragging").forEach(e=>e.classList.remove("dragging"));});
 board0.addEventListener("dragover",e=>{
   if(!drag)return;const col=e.target.closest(".col");if(!col)return;e.preventDefault();
@@ -625,7 +653,7 @@ board0.addEventListener("dragover",e=>{
   const after=cards.find(x=>{const r=x.getBoundingClientRect();return e.clientY<r.top+r.height/2;});
   document.querySelectorAll(".ph").forEach(x=>x.remove());
   const ph=document.createElement("div");ph.className="ph";
-  if(after)col.insertBefore(ph,after);else col.appendChild(ph);
+  const body=col.querySelector(".colbody")||col;if(after)after.parentNode.insertBefore(ph,after);else body.appendChild(ph);
 });
 board0.addEventListener("drop",async e=>{
   if(!drag)return;e.preventDefault();e.stopPropagation();
@@ -642,7 +670,7 @@ board0.addEventListener("drop",async e=>{
     return;
   }
   const ph=col.querySelector(".ph");
-  const ids=[];for(const el of col.children){if(el===ph)ids.push(d.id);else if(el.dataset&&el.dataset.card&&el.dataset.card!==d.id)ids.push(el.dataset.card);}
+  const ids=[];for(const el of (col.querySelector(".colbody")||col).children){if(el===ph)ids.push(d.id);else if(el.dataset&&el.dataset.card&&el.dataset.card!==d.id)ids.push(el.dataset.card);}
   if(!ids.includes(d.id))ids.push(d.id);
   clearPh();
   const writes=[];
