@@ -50,14 +50,22 @@ public class W32 {
   [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
   public static IntPtr Child(IntPtr dlg, int id, string cls) { IntPtr found = IntPtr.Zero;
     EnumChildWindows(dlg, (h, l) => { var c = new StringBuilder(64); GetClassName(h, c, 64);
-      if (GetDlgCtrlID(h) == id && (cls == null || c.ToString() == cls)) { found = h; return false; } return true; }, IntPtr.Zero);
+      if ((id <= 0 || GetDlgCtrlID(h) == id) && (cls == null || c.ToString() == cls)) { found = h; return false; } return true; }, IntPtr.Zero);
     return found; }
   // 저장 창: 파일 이름 칸(Edit, 1001 또는 ComboBox 안 Edit)에 경로 넣고 [저장](1) 누르기 — 마우스·키보드 없이 즉시
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, StringBuilder l);
+  static string TextOf(IntPtr h) { var b = new StringBuilder(1024); SendMessage(h, 0x000D, (IntPtr)1024, b); return b.ToString(); }   // WM_GETTEXT
+  // 저장 창: [파일 이름] 칸에 전체 경로를 넣고 들어갔는지 확인한 뒤 [저장](1) 누르기
+  // 파일 이름 칸은 FileNameControlHost(1148) 안의 Edit(1001) — 다른 칸에 잘못 넣지 않도록 이것부터 찾음
   public static bool SaveAs(IntPtr dlg, string path) {
-    IntPtr edit = Child(dlg, 1001, "Edit");
-    if (edit == IntPtr.Zero) { IntPtr cb = Child(dlg, 1148, null); if (cb != IntPtr.Zero) edit = Child(cb, 1001, "Edit"); }
+    IntPtr edit = IntPtr.Zero;
+    IntPtr host = Child(dlg, 1148, null);
+    if (host != IntPtr.Zero) { edit = Child(host, 1001, "Edit"); if (edit == IntPtr.Zero) edit = Child(host, 0, "Edit"); }
+    if (edit == IntPtr.Zero) edit = Child(dlg, 1001, "Edit");
     if (edit == IntPtr.Zero) return false;
     SendMessage(edit, 0x000C, IntPtr.Zero, path);            // WM_SETTEXT
+    System.Threading.Thread.Sleep(120);
+    if (TextOf(edit) != path) return false;
     IntPtr ok = Child(dlg, 1, "Button"); if (ok == IntPtr.Zero) return false;
     SendMessage(ok, 0x00F5, IntPtr.Zero, IntPtr.Zero);        // BM_CLICK
     return true; }
@@ -214,11 +222,11 @@ foreach ($room in $rooms) {
     $path = Join-Path $OutDir ("KakaoTalk_{0}_{1}.txt" -f $safe, (Get-Date -Format "yyyyMMdd_HHmmss"))
     $dh = [IntPtr]$dlg.Current.NativeWindowHandle
     if (-not [W32]::SaveAs($dh, $path)) {
+      $script:dbg += "저장 창 이름칸 직접 입력 실패 → 키보드로 입력"
       Focus $dh
-      $fn = $dlg.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::AutomationIdProperty, "1001")))
-      if ($fn) { $fr = $fn.Current.BoundingRectangle; [W32]::Click([int]($fr.Left + $fr.Width / 2), [int]($fr.Top + $fr.Height / 2)); Start-Sleep -Milliseconds 150 }
+      [System.Windows.Forms.SendKeys]::SendWait("%n"); Start-Sleep -Milliseconds 200   # Alt+N = 파일 이름 칸
       [System.Windows.Forms.Clipboard]::SetText($path)
-      [System.Windows.Forms.SendKeys]::SendWait("^a{DEL}^v"); Start-Sleep -Milliseconds 200
+      [System.Windows.Forms.SendKeys]::SendWait("^a{DEL}^v"); Start-Sleep -Milliseconds 250
       [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
     }
     # 내보내기 끝날 때까지(완료 창 또는 파일 크기 멈춤) 최대 4분
