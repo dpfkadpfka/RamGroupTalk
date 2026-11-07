@@ -78,6 +78,7 @@ function WaitRoom($name) { for ($i = 0; $i -lt 10; $i++) { Start-Sleep -Millisec
 function TryOpen($name) {
   $m = MainWin; if (-not $m) { return $null }
   $mh = [IntPtr][long]$m[0]; Focus $mh
+  [W32]::CtrlKey(0x32); Start-Sleep -Milliseconds 400      # Ctrl+2 채팅 탭으로 (친구 탭에 있어도)
   [W32]::CtrlKey(0x46); Start-Sleep -Milliseconds 500      # Ctrl+F 통합검색
   if ((MainWin) -and [W32]::GetForegroundWindow() -ne $mh) { return $null }
   Paste $name; Start-Sleep -Milliseconds 1000
