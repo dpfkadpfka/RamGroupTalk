@@ -38,9 +38,10 @@ function createWindow() {
   const b = conf.bounds || { width: 1100, height: 760, x: wa.x + wa.width - 1120, y: wa.y + 20 };
   win = new BrowserWindow({
     ...b, minWidth: 420, minHeight: 360, frame: false, show: false,
-    backgroundColor: "#f6f7f9", alwaysOnTop: conf.alwaysOnTop, title: "RamGroupTalk",
+    backgroundColor: "#f6f7f9", alwaysOnTop: conf.alwaysOnTop, title: "RamGroupTalk", icon: path.join(__dirname, "renderer", process.platform === "win32" ? "icon.ico" : "icon.png"),
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false }
   });
+  if (process.platform === "win32") { try { win.setAppDetails({ appId: "com.yeram.ramgrouptalk", appIconPath: app.isPackaged ? process.execPath : path.join(__dirname, "renderer", "icon.ico"), appIconIndex: 0, relaunchDisplayName: "RamGroupTalk" }); } catch {} }
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
   win.once("ready-to-show", () => win.show());
   const remember = () => { if (!win.isMinimized() && !win.isMaximized()) { conf.bounds = win.getBounds(); saveConf(); } };
@@ -51,7 +52,7 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, "renderer", "icon.png"));
+  const icon = nativeImage.createFromPath(path.join(__dirname, "renderer", process.platform === "win32" ? "icon.ico" : "icon.png"));
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon.resize({ width: 16, height: 16 }));
   if (icon.isEmpty()) app.getFileIcon(process.execPath, { size: "small" }).then(i => tray.setImage(i)).catch(() => {});
   tray.setToolTip("RamGroupTalk");

@@ -266,6 +266,15 @@ body{margin:0}
 .it.rm[aria-pressed="true"] .sw{box-shadow:0 0 0 1.5px #fff}
 .sw{width:10px;height:10px;border-radius:3px}
 .sfoot{padding:6px 12px!important;border-top:1px solid var(--line)}
+
+.it.vw{gap:10px}
+.it.vw .vi{flex:none;color:var(--faint);transition:color .12s}
+.it.vw:hover .vi{color:var(--fg2)}
+.it.vw[aria-pressed="true"]{background:var(--accbg);color:var(--acc)}
+.it.vw[aria-pressed="true"] .vi{color:var(--acc)}
+.it.vw[aria-pressed="true"] .vi rect,.it.vw[aria-pressed="true"] .vi path{fill:none}
+.it.vw[aria-pressed="true"] .vi rect{fill:color-mix(in srgb,var(--acc) 18%,transparent)}
+.it.vw[aria-pressed="true"] em{color:var(--acc);font-weight:700}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -398,7 +407,8 @@ function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTime
 function render(){
   const act=state.items.filter(i=>i.status!=="archived"), arc=state.items.filter(i=>i.status==="archived");
   const pool=state.view==="active"?act:arc;
-  $("views").innerHTML=[["active","정리함",act.length],["archived","보관함",arc.length]].map(([k,l,n])=>`<button class="it" data-view="${k}" aria-pressed="${state.view===k}">${l}<em>${n}</em></button>`).join("");
+  const VI={active:'<svg class="vi" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7 9h10M7 13h10M7 17h6"/></svg>',archived:'<svg class="vi" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/></svg>'};
+  $("views").innerHTML=[["active","정리함",act.length],["archived","보관함",arc.length]].map(([k,l,n])=>`<button class="it vw" data-view="${k}" aria-pressed="${state.view===k}">${VI[k]}${l}<em>${n}</em></button>`).join("");
   const allRooms=roomsOf(state.items);
   if(state.room!=="전체"&&!allRooms.includes(state.room))state.room="전체";
   $("rooms").innerHTML=`<div class="roomrow"><button class="it" data-room="전체" aria-pressed="${state.room==="전체"}"><span class="sw" style="background:var(--faint);cursor:default;box-shadow:none"></span>전체<em>${pool.length}</em></button></div>`+
