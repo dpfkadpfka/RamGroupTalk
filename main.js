@@ -46,6 +46,7 @@ function createWindow() {
   if (process.platform === "win32") { try { win.setAppDetails({ appId: "com.yeram.ramgrouptalk", appIconPath: app.isPackaged ? process.execPath : path.join(__dirname, "renderer", "icon.ico"), appIconIndex: 0, relaunchDisplayName: "RamGroupTalk" }); } catch {} }
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
   win.once("ready-to-show", () => win.show());
+  win.on("focus", () => { if (Date.now() - lastSync > 30000) scheduleSync(500); });
   const remember = () => { if (!win.isMinimized() && !win.isMaximized()) { conf.bounds = win.getBounds(); saveConf(); } };
   win.on("moved", remember); win.on("resized", remember);
   win.on("close", e => { if (!quitting && conf.closeToTray) { e.preventDefault(); win.hide(); } else { quitting = true; } });
@@ -134,7 +135,7 @@ async function gemini(prompt) {
 
 // ---------- IPC ----------
 ipcMain.handle("data:load", () => readJson(DATA_FILE, {}));
-ipcMain.handle("data:save", (_e, docs) => { writeJson(DATA_FILE, docs); return true; });
+ipcMain.handle("data:save", (_e, docs) => { writeJson(DATA_FILE, docs); scheduleSync(4000); return true; });
 ipcMain.handle("conf:get", () => ({ ...conf, gRefresh: undefined, gClientSecret: undefined, geminiKey: conf.geminiKey ? "••••" + conf.geminiKey.slice(-4) : "", hasKey: !!conf.geminiKey }));
 ipcMain.handle("conf:set", (_e, patch) => {
   if (patch.geminiKey === undefined || String(patch.geminiKey).startsWith("••••")) delete patch.geminiKey;
@@ -179,7 +180,7 @@ ipcMain.handle("backup:export", async () => {
 
 // ---------- 구글 캘린더 (Ram Calendar와 같은 방식: PKCE + 루프백 로그인, 알림 없이 등록) ----------
 const GAPI = "https://www.googleapis.com/calendar/v3";
-const GSCOPE = "https://www.googleapis.com/auth/calendar";
+const GSCOPE = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive.appdata";
 let GBUILTIN = { clientId: "", clientSecret: "" };
 try { GBUILTIN = { ...GBUILTIN, ...JSON.parse(fs.readFileSync(path.join(__dirname, "creds.json"), "utf8").replace(/^﻿/, "")) }; } catch {}
 const gId = () => conf.gClientId || GBUILTIN.clientId;
@@ -240,8 +241,8 @@ async function gApi(method, p, query, body) {
   return j;
 }
 const wrap = f => async (...a) => { try { return { ok: true, value: await f(...a) } } catch (e) { return { ok: false, code: e.code || "ERR", message: String(e.message || e) }; } };
-ipcMain.handle("gcal:status", () => ({ connected: !!conf.gRefresh, hasKey: !!(gId() && gSecret()), custom: !!conf.gClientId }));
-ipcMain.handle("gcal:login", wrap(() => gLogin()));
+ipcMain.handle("gcal:status", () => ({ sync: syncState, syncedAt: lastSync, connected: !!conf.gRefresh, hasKey: !!(gId() && gSecret()), custom: !!conf.gClientId }));
+ipcMain.handle("gcal:login", wrap(async () => { await gLogin(); scheduleSync(300); return true; }));
 ipcMain.handle("gcal:logout", () => { const rt = decS(conf.gRefresh); if (rt) fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(rt), { method: "POST" }).catch(() => {}); conf.gRefresh = ""; gAccess = null; saveConf(); return true; });
 // 같은 날 같은 제목 일정이 이미 있으면 새로 만들지 않음
 ipcMain.handle("gcal:add", wrap(async (_e, body) => {
@@ -253,6 +254,59 @@ ipcMain.handle("gcal:add", wrap(async (_e, body) => {
   const ev = await gApi("POST", "/calendars/primary/events", null, body);
   return { duplicate: false, link: ev.htmlLink };
 }));
+
+// ---------- 구글 로그인 동기화: 내 구글 드라이브의 앱 전용 숨김 공간(appDataFolder)에 정리 내용 저장 ----------
+// 문서마다 고친 시각(__ts)과 지운 시각(__del)을 기억해, 두 컴퓨터에서 바꾼 것 중 나중 것을 남긴다
+const SYNC_NAME = "ramgrouptalk-data.json";
+function mergeDocs(a, b) {
+  a = a || {}; b = b || {};
+  const out = { __ts: {}, __del: {} };
+  const ta = a.__ts || {}, tb = b.__ts || {}, da = a.__del || {}, db = b.__del || {};
+  const keys = new Set([...Object.keys(a), ...Object.keys(b), ...Object.keys(da), ...Object.keys(db)].filter(k => !k.startsWith("__")));
+  for (const k of keys) {
+    const A = a[k] ? (ta[k] || 1) : 0, B = b[k] ? (tb[k] || 1) : 0, D = Math.max(da[k] || 0, db[k] || 0);
+    const best = Math.max(A, B);
+    if (D && D >= best) { out.__del[k] = D; continue; }
+    if (!best) continue;
+    out[k] = A >= B ? a[k] : b[k]; out.__ts[k] = best;
+  }
+  return out;
+}
+async function gDrive(method, url, body, raw) {
+  const t = await gToken();
+  const r = await fetch(url, { method, headers: { Authorization: "Bearer " + t, ...(raw ? { "Content-Type": raw } : body ? { "Content-Type": "application/json" } : {}) }, body: raw ? body : body ? JSON.stringify(body) : undefined });
+  if (r.status === 403 || r.status === 401) { const j = await r.json().catch(() => ({})); throw Object.assign(new Error((j.error && j.error.message) || "권한 없음"), { code: "SCOPE" }); }
+  if (!r.ok) throw new Error("드라이브 " + r.status);
+  return r;
+}
+let syncBusy = false, syncTimer = null, lastSync = 0, syncState = "";
+function scheduleSync(ms) { if (!conf.gRefresh) return; clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, ms || 1000); }
+async function syncNow() {
+  if (!conf.gRefresh || syncBusy) return;
+  syncBusy = true;
+  try {
+    const q = encodeURIComponent(`name='${SYNC_NAME}'`);
+    const list = await (await gDrive("GET", `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`)).json();
+    const id = list.files && list.files[0] && list.files[0].id;
+    const remote = id ? await (await gDrive("GET", `https://www.googleapis.com/drive/v3/files/${id}?alt=media`)).json().catch(() => ({})) : {};
+    const local = readJson(DATA_FILE, {});
+    const merged = mergeDocs(local, remote);
+    const ms = JSON.stringify(merged);
+    if (ms !== JSON.stringify(mergeDocs(local, {}))) { writeJson(DATA_FILE, merged); if (win) win.webContents.send("data:remote", merged); }
+    if (!id || ms !== JSON.stringify(mergeDocs(remote, {}))) {
+      if (id) await gDrive("PATCH", `https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, ms, "application/json");
+      else {
+        const bnd = "rgt" + Date.now();
+        const bodyM = `--${bnd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: SYNC_NAME, parents: ["appDataFolder"] })}\r\n--${bnd}\r\nContent-Type: application/json\r\n\r\n${ms}\r\n--${bnd}--`;
+        await gDrive("POST", "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", bodyM, "multipart/related; boundary=" + bnd);
+      }
+    }
+    lastSync = Date.now(); syncState = "ok";
+  } catch (e) { syncState = e.code === "SCOPE" ? "relogin" : "error"; }
+  finally { syncBusy = false; if (win) win.webContents.send("sync:state", { state: syncState, at: lastSync }); }
+}
+setInterval(() => scheduleSync(10), 90 * 1000);
+ipcMain.handle("sync:now", async () => { await syncNow(); return { state: syncState, at: lastSync }; });
 ipcMain.handle("open:url", (_e, u) => { if (/^https?:/.test(u)) shell.openExternal(u); });
 ipcMain.handle("open:folder", () => { fs.mkdirSync(conf.exportDir, { recursive: true }); shell.openPath(conf.exportDir); });
 ipcMain.on("win:min", () => win.minimize());
@@ -311,6 +365,7 @@ app.whenReady().then(() => {
       execFile(path.join(process.env.WINDIR || "C:\\Windows", "System32", "ie4uinit.exe"), ["-show"], { windowsHide: true }, () => {});
     }
     setupUpdater(); checkUpdate(false);
+    scheduleSync(3000);
     setInterval(() => checkUpdate(false), 6 * 60 * 60 * 1000);
     if (process.platform === "win32") app.setUserTasks([
       { program: process.execPath, arguments: "--run-export", iconPath: process.execPath, iconIndex: 0, title: "지금 카톡 가져오기", description: "설정한 단톡방을 저장하고 정리해요" },
