@@ -2,7 +2,7 @@ name: release
 on:
   push:
     branches: [main]
-    paths-ignore: ["README.md"]
+    paths-ignore: ["README.md", "CHANGELOG.md", "docs/**"]
   workflow_dispatch:
 permissions:
   contents: write
@@ -24,3 +24,16 @@ jobs:
       - run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 릴리스 설명에 바뀐 점 넣기 (CHANGELOG.md)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $t = Get-Content CHANGELOG.md -Raw -Encoding utf8
+          $m = [regex]::Match($t, "(?ms)^## " + [regex]::Escape($v) + "\s*\r?\n(.*?)(?=^## |\z)")
+          $body = if ($m.Success) { $m.Groups[1].Value.Trim() } else { "" }
+          $body = $body -replace "(?m)^### ", "## "
+          $foot = "`n`n---`n**설치**: 아래 Assets에서 ``RamGroupTalk-Setup-$v.exe``를 받아 실행해요. 이미 쓰고 있다면 자동으로 업데이트돼요.`n`n[사용 방법](https://github.com/dpfkadpfka/RamGroupTalk#readme) · [전체 바뀐 점](https://github.com/dpfkadpfka/RamGroupTalk/blob/main/CHANGELOG.md)"
+          Set-Content -Path notes.md -Value ($body + $foot) -Encoding utf8
+          gh release edit "v$v" --title "RamGroupTalk $v" --notes-file notes.md
