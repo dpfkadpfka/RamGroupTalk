@@ -28,7 +28,20 @@ public class W32 {
       r.Add(new string[] { h.ToInt64().ToString(), p.ToString(), t.ToString(), c.ToString(), IsWindowVisible(h) ? "1" : "0" }); return true; }, IntPtr.Zero);
     return r; }
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte sc, uint f, UIntPtr e);
-  public static void Fg(IntPtr h) { keybd_event(0x12,0,0,UIntPtr.Zero); keybd_event(0x12,0,2,UIntPtr.Zero); ShowWindow(h, 9); SetForegroundWindow(h); }
+  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool f);
+  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+  [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+  // Alt 키를 누르지 않고 앞으로 가져오기 (Alt를 누르면 카톡 창이 메뉴 모드가 돼서 다음 단축키가 씹힘)
+  public static void Fg(IntPtr h) {
+    if (IsIconic(h) || !IsWindowVisible(h)) ShowWindow(h, 9);
+    IntPtr f = GetForegroundWindow(); if (f == h) return;
+    uint p; uint ft = GetWindowThreadProcessId(f, out p); uint me = GetCurrentThreadId();
+    if (ft != me) AttachThreadInput(me, ft, true);
+    BringWindowToTop(h); SetForegroundWindow(h);
+    if (ft != me) AttachThreadInput(me, ft, false);
+    if (GetForegroundWindow() != h) { keybd_event(0x12,0,0,UIntPtr.Zero); SetForegroundWindow(h); keybd_event(0x12,0,2,UIntPtr.Zero); keybd_event(0x12,0,0,UIntPtr.Zero); keybd_event(0x12,0,2,UIntPtr.Zero); }
+  }
   public static void CtrlKey(byte k) { keybd_event(0x11,0,0,UIntPtr.Zero); keybd_event(k,0,0,UIntPtr.Zero); System.Threading.Thread.Sleep(60); keybd_event(k,0,2,UIntPtr.Zero); keybd_event(0x11,0,2,UIntPtr.Zero); }
   public static void CtrlS() { keybd_event(0x11,0,0,UIntPtr.Zero); keybd_event(0x53,0,0,UIntPtr.Zero); System.Threading.Thread.Sleep(60); keybd_event(0x53,0,2,UIntPtr.Zero); keybd_event(0x11,0,2,UIntPtr.Zero); }
   [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr p, EnumProc f, IntPtr l);
@@ -107,15 +120,11 @@ function ClickFrac($h, $fx, $fy, [switch]$Double) {
   if ($Double) { [W32]::DClick($x, $y) } else { [W32]::Click($x, $y) }
   Start-Sleep -Milliseconds 400
 }
-# 검색 뒤 새로 뜬 방 창 기다리기 (최대 약 6초) — 제목이 방 이름을 포함하거나, 아직 제목이 비어 있으면 그 창으로 봄
-function WaitRoom($name, $n = 24, $known = $null) {
+# 방 창이 뜰 때까지 기다리기 — 제목에 방 이름이 들어 있는 창만 인정 (다른 방·개인톡은 절대 저장 안 함)
+function WaitRoom($name, $n = 24) {
   for ($i = 0; $i -lt $n; $i++) {
     Start-Sleep -Milliseconds 250
     $w = FindRoom $name; if ($w) { $script:dbg += "방 찾음: " + $w[2]; return ,$w }
-    if ($known) {
-      $nw = KWins | Where-Object { $known -notcontains $_[0] -and $_[3] -like "EVA_Window*" -and $_[2] -ne "카카오톡" -and $_[2] -ne "통합검색" } | Select-Object -First 1
-      if ($nw -and $i -ge 8) { $script:dbg += "새 창으로 봄: [" + $nw[2] + "]"; return ,$nw }
-    }
   }
   return $null
 }
@@ -129,13 +138,14 @@ function TryOpen($name) {
   $h = MainFocus; if (-not $h) { return $null }
   ClickIn $h 38 118 | Out-Null                          # 왼쪽 말풍선(채팅) 아이콘
   if (-not (MainFocus)) { return $null }
-  [W32]::CtrlKey(0x46); Start-Sleep -Milliseconds 600   # Ctrl+F: 검색칸 열고 커서
+  [System.Windows.Forms.SendKeys]::SendWait("^f"); Start-Sleep -Milliseconds 700   # Ctrl+F: 검색칸 열고 커서
   Paste $name; Start-Sleep -Milliseconds 1300            # 검색 결과가 뜰 때까지
   [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-  $w = WaitRoom $name 14 $known; if ($w) { return ,$w }
+  $w = WaitRoom $name 16; if ($w) { return ,$w }
+  CloseStray $known $name ""
   # Enter로 안 열리면 검색 결과 첫 방을 더블클릭
   $h = MainFocus
-  if ($h) { ClickIn $h 200 172 -Double | Out-Null; $w = WaitRoom $name 20 $known; if ($w) { return ,$w } }
+  if ($h) { ClickIn $h 200 172 -Double | Out-Null; $w = WaitRoom $name 20; if ($w) { return ,$w }; CloseStray $known $name "" }
   CloseStray $known $name ""
   # 통합검색 (검색칸 오른쪽 끝 버튼)
   $h = MainFocus; if (-not $h) { return $null }
@@ -149,7 +159,7 @@ function TryOpen($name) {
   Start-Sleep -Milliseconds 700
   ClickFrac $sh 0.29 0.373 -Double                      # 첫 결과
   $known2 = @($known) + @($sw[0])
-  $w = WaitRoom $name 24 $known2
+  $w = WaitRoom $name 24
   [W32]::PostMessage($sh, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null   # 통합검색 창 닫기
   if ($w) { return ,$w }
   CloseStray $known $name ""
