@@ -66,10 +66,10 @@ if (-not $kakao) { $result.errors += @{ room = ""; msg = "카카오톡 PC가 켜
 $pids = @($kakao | ForEach-Object { $_.Id })
 function KWins { [W32]::List() | Where-Object { $pids -contains [int]$_[1] -and $_[4] -eq "1" } }
 function FindRoom($name) {
-  $ws = @(KWins | Where-Object { $_[3] -ne "#32770" -and $_[2] -ne "카카오톡" -and $_[2] })
+  $ws = @(KWins | Where-Object { $_[3] -ne "#32770" -and $_[2] -ne "카카오톡" -and $_[2] -ne "통합검색" -and $_[2] })
   $hit = $ws | Where-Object { $_[2] -eq $name } | Select-Object -First 1
   if (-not $hit) { $hit = $ws | Where-Object { $_[2].Contains($name) } | Select-Object -First 1 }
-  $hit
+  if ($hit) { return ,$hit }
 }
 function Focus($h) { [W32]::Fg($h); Start-Sleep -Milliseconds 200 }
 # 주의: 카톡 메인 창에서 Ctrl+A는 '친구 추가'라서 쓰지 않음 (End → Shift+Home 으로 지우기)
@@ -77,7 +77,7 @@ function Paste($text) { [System.Windows.Forms.Clipboard]::SetText($text); [Syste
 
 # 방이 안 열려 있으면 (카톡 PC에서 직접 확인한 순서)
 #  1) 메인 창(숨어 있으면 꺼내기) → 왼쪽 채팅 아이콘
-#  2) Ctrl+F(검색칸 열고 커서) → 방 이름 붙여넣기 → Enter = 지금 보이는 목록(채팅/오픈채팅)에서 첫 결과 열기
+#  2) Ctrl+F(검색칸 열고 커서) → 방 이름 붙여넣기 → Enter(안 열리면 첫 결과 더블클릭) = 지금 보이는 목록에서 찾기
 #  3) 못 찾으면 검색칸의 [통합검색] → [채팅] 탭(일반+오픈채팅 모두 나옴) → 첫 결과 더블클릭
 # 좌표는 100% 배율 기준, DPI 인식 상태에서 창 위치(실제 픽셀) × 배율로 계산
 [W32]::SetProcessDPIAware() | Out-Null
@@ -107,7 +107,18 @@ function ClickFrac($h, $fx, $fy, [switch]$Double) {
   if ($Double) { [W32]::DClick($x, $y) } else { [W32]::Click($x, $y) }
   Start-Sleep -Milliseconds 400
 }
-function WaitRoom($name, $n = 8) { for ($i = 0; $i -lt $n; $i++) { Start-Sleep -Milliseconds 250; $w = FindRoom $name; if ($w) { return $w } }; return $null }
+# 검색 뒤 새로 뜬 방 창 기다리기 (최대 약 6초) — 제목이 방 이름을 포함하거나, 아직 제목이 비어 있으면 그 창으로 봄
+function WaitRoom($name, $n = 24, $known = $null) {
+  for ($i = 0; $i -lt $n; $i++) {
+    Start-Sleep -Milliseconds 250
+    $w = FindRoom $name; if ($w) { $script:dbg += "방 찾음: " + $w[2]; return ,$w }
+    if ($known) {
+      $nw = KWins | Where-Object { $known -notcontains $_[0] -and $_[3] -like "EVA_Window*" -and $_[2] -ne "카카오톡" -and $_[2] -ne "통합검색" } | Select-Object -First 1
+      if ($nw -and $i -ge 8) { $script:dbg += "새 창으로 봄: [" + $nw[2] + "]"; return ,$nw }
+    }
+  }
+  return $null
+}
 # 엉뚱하게 열린 창(다른 방, 친구 추가 등)은 닫기
 function CloseStray($known, $name, $keep) {
   foreach ($w in @(KWins | Where-Object { $known -notcontains $_[0] -and $_[2] -ne "카카오톡" -and $_[0] -ne $keep -and -not ($_[2] -and $_[2].Contains($name)) })) {
@@ -119,9 +130,12 @@ function TryOpen($name) {
   ClickIn $h 38 118 | Out-Null                          # 왼쪽 말풍선(채팅) 아이콘
   if (-not (MainFocus)) { return $null }
   [W32]::CtrlKey(0x46); Start-Sleep -Milliseconds 600   # Ctrl+F: 검색칸 열고 커서
-  Paste $name; Start-Sleep -Milliseconds 900
+  Paste $name; Start-Sleep -Milliseconds 1300            # 검색 결과가 뜰 때까지
   [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-  $w = WaitRoom $name; if ($w) { CloseStray $known $name $w[0]; return $w }
+  $w = WaitRoom $name 14 $known; if ($w) { return ,$w }
+  # Enter로 안 열리면 검색 결과 첫 방을 더블클릭
+  $h = MainFocus
+  if ($h) { ClickIn $h 200 172 -Double | Out-Null; $w = WaitRoom $name 20 $known; if ($w) { return ,$w } }
   CloseStray $known $name ""
   # 통합검색 (검색칸 오른쪽 끝 버튼)
   $h = MainFocus; if (-not $h) { return $null }
@@ -134,9 +148,10 @@ function TryOpen($name) {
   ClickFrac $sh 0.216 0.232                             # [채팅] 탭
   Start-Sleep -Milliseconds 700
   ClickFrac $sh 0.29 0.373 -Double                      # 첫 결과
-  $w = WaitRoom $name 10
+  $known2 = @($known) + @($sw[0])
+  $w = WaitRoom $name 24 $known2
   [W32]::PostMessage($sh, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null   # 통합검색 창 닫기
-  if ($w) { CloseStray $known $name $w[0]; return $w }
+  if ($w) { return ,$w }
   CloseStray $known $name ""
   return $null
 }
@@ -153,6 +168,7 @@ foreach ($room in $rooms) {
       ClearSearch
       if (-not $hit) { $result.errors += @{ room = $name; msg = "방을 찾지 못했어요(이름이 카톡 방 이름과 똑같은지 확인)" }; continue }
       $openedByMe = $true
+      Start-Sleep -Milliseconds 1200   # 방이 다 열릴 때까지
     }
     $h = [IntPtr][long]$hit[0]; Focus $h
     $before = @(KWins | ForEach-Object { $_[0] })
@@ -165,7 +181,11 @@ foreach ($room in $rooms) {
       $d = KWins | Where-Object { $_[3] -eq "#32770" } | Select-Object -First 1
       if ($d) { $dlg = $AE::FromHandle([IntPtr][long]$d[0]) }
     }
-    if (-not $dlg) { $result.errors += @{ room = $name; msg = "저장 창이 뜨지 않았어요" }; continue }
+    if (-not $dlg) {   # 한 번 더 시도
+      Focus $h; [W32]::Click([int](($r.L + $r.R) / 2), [int]($r.T + ($r.B - $r.T) * 0.35)); Start-Sleep -Milliseconds 300; [W32]::CtrlS()
+      for ($i = 0; $i -lt 50 -and -not $dlg; $i++) { Start-Sleep -Milliseconds 100; $d = KWins | Where-Object { $_[3] -eq "#32770" } | Select-Object -First 1; if ($d) { $dlg = $AE::FromHandle([IntPtr][long]$d[0]) } }
+    }
+    if (-not $dlg) { $result.errors += @{ room = $name; msg = "저장 창이 뜨지 않았어요" }; $script:dbg += "저장 창 없음: " + $hit[2]; continue }
     $safe = ($name -replace '[\\/:*?"<>|]', '_')
     $path = Join-Path $OutDir ("KakaoTalk_{0}_{1}.txt" -f $safe, (Get-Date -Format "yyyyMMdd_HHmmss"))
     $dh = [IntPtr]$dlg.Current.NativeWindowHandle
