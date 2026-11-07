@@ -60,6 +60,7 @@ function createTray() {
     { label: "열기", click: () => { win.show(); win.focus(); } },
     { label: "지금 카톡 가져오기", click: () => { win.show(); win.webContents.send("run-export"); } },
     { label: "가져오기 중단", click: () => cancelExport() },
+    { label: "저장 폴더 열기", click: () => { fs.mkdirSync(conf.exportDir, { recursive: true }); shell.openPath(conf.exportDir); } },
     { type: "separator" },
     { label: "업데이트 확인", click: () => checkUpdate(true) },
     { label: "버전 " + app.getVersion(), enabled: false },
@@ -211,6 +212,7 @@ function checkUpdate(manual) {
 }
 function handleArgs(argv) {
   if (argv.includes("--check-update")) checkUpdate(true);
+  else if (argv.includes("--open-folder")) { fs.mkdirSync(conf.exportDir, { recursive: true }); shell.openPath(conf.exportDir); }
   else if (argv.includes("--run-export")) { if (win) { win.show(); win.webContents.send("run-export"); } }
 }
 
@@ -223,6 +225,7 @@ app.whenReady().then(() => {
     setInterval(() => checkUpdate(false), 6 * 60 * 60 * 1000);
     if (process.platform === "win32") app.setUserTasks([
       { program: process.execPath, arguments: "--run-export", iconPath: process.execPath, iconIndex: 0, title: "지금 카톡 가져오기", description: "설정한 단톡방을 저장하고 정리해요" },
+      { program: process.execPath, arguments: "--open-folder", iconPath: process.execPath, iconIndex: 0, title: "저장 폴더 열기", description: "카톡 대화가 저장된 폴더를 열어요" },
       { program: process.execPath, arguments: "--check-update", iconPath: process.execPath, iconIndex: 0, title: "업데이트 확인", description: "새 버전이 있는지 확인해요" }
     ]);
   }
