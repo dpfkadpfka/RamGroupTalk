@@ -241,7 +241,7 @@ body{margin:0}
     <i class="wsep"></i>
     <button id="minbtn" title="최소화"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor" stroke-width="1"/></svg></button>
     <button id="maxbtn" title="최대화"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/></svg></button>
-    <button class="x" id="hidebtn" title="닫기 (트레이에서 계속 실행)"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1"/></svg></button>
+    <button class="x" id="hidebtn" title="닫기"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1"/></svg></button>
   </div>
 </div>
 <div class="app">
@@ -293,6 +293,7 @@ body{margin:0}
       <div class="fld"><b>주제 색</b><small>사이드바에서 주제 옆 색 동그라미를 누르면 바꿀 수 있어요. 주제와 카드는 끌어서 순서를 바꿔요.</small></div>
       <label class="chk"><input type="checkbox" id="s-top">항상 다른 창 위에 두기</label>
       <label class="chk"><input type="checkbox" id="s-login">윈도우 켤 때 자동 실행</label>
+      <label class="chk"><input type="checkbox" id="s-tray">닫기(✕) 눌러도 트레이에서 계속 실행 <small style="font-weight:500;color:var(--muted)">— 매일 자동 가져오기를 쓰면 켜 두세요</small></label>
     </section>
     <section class="spn" data-pane="data" hidden>
       <h4>데이터·백업</h4>
@@ -630,7 +631,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&exporting)autoExport(
 async function openSettings(){
   const c=await RT.getConf();
   $("s-rooms").value=(c.rooms||[]).join("\n");$("s-key").value=c.geminiKey||"";$("s-time").value=c.dailyTime||"";
-  $("s-dir").value=c.exportDir||"";$("s-top").checked=!!c.alwaysOnTop;$("s-login").checked=!!c.openAtLogin;$("s-model").value=c.model||"";$("s-keymsg").textContent="";
+  $("s-dir").value=c.exportDir||"";$("s-top").checked=!!c.alwaysOnTop;$("s-login").checked=!!c.openAtLogin;$("s-tray").checked=!!c.closeToTray;$("s-model").value=c.model||"";$("s-keymsg").textContent="";
   segSet("s-theme",c.theme||"auto");segSet("s-size",String(c.fontSize||15));
   showTab(!c.rooms.length?"kakao":!c.hasKey?"ai":"kakao");
   $("setmodal").hidden=false;
@@ -666,7 +667,7 @@ $("s-keyok").onclick=async()=>{
 };
 $("s-save").onclick=async()=>{
   const rooms=$("s-rooms").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  await RT.setConf({theme:segGet("s-theme")||"auto",fontSize:+(segGet("s-size")||15),rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
+  await RT.setConf({theme:segGet("s-theme")||"auto",fontSize:+(segGet("s-size")||15),rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,closeToTray:$("s-tray").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
   $("setmodal").hidden=true;syncPin();toast("설정을 저장했어요");
 };
 RT.getConf().then(c=>{if(!c.rooms.length||!c.hasKey)setTimeout(openSettings,600);});

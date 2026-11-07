@@ -20,6 +20,7 @@ const DEFAULT_CONF = {
   dailyTime: "",
   exportDir: path.join(app.getPath("documents"), "RamGroupTalk 대화 저장"),
   alwaysOnTop: false,
+  closeToTray: false,
   openAtLogin: true,
   bounds: null,
   lastAuto: ""
@@ -44,7 +45,7 @@ function createWindow() {
   win.once("ready-to-show", () => win.show());
   const remember = () => { if (!win.isMinimized() && !win.isMaximized()) { conf.bounds = win.getBounds(); saveConf(); } };
   win.on("moved", remember); win.on("resized", remember);
-  win.on("close", e => { if (!quitting) { e.preventDefault(); win.hide(); } });
+  win.on("close", e => { if (!quitting && conf.closeToTray) { e.preventDefault(); win.hide(); } else { quitting = true; } });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: "deny" }; });
   win.webContents.on("will-navigate", (e, url) => { if (!url.startsWith("file:")) { e.preventDefault(); shell.openExternal(url); } });
 }
@@ -165,7 +166,7 @@ ipcMain.handle("open:url", (_e, u) => { if (/^https?:/.test(u)) shell.openExtern
 ipcMain.handle("open:folder", () => { fs.mkdirSync(conf.exportDir, { recursive: true }); shell.openPath(conf.exportDir); });
 ipcMain.on("win:min", () => win.minimize());
 ipcMain.on("win:max", () => (win.isMaximized() ? win.unmaximize() : win.maximize()));
-ipcMain.on("win:hide", () => win.hide());
+ipcMain.on("win:hide", () => { if (conf.closeToTray) win.hide(); else { quitting = true; app.quit(); } });
 
 // 매일 정해 둔 시각에 자동 가져오기
 setInterval(() => {
@@ -221,4 +222,4 @@ app.whenReady().then(() => {
   }
 });
 app.on("before-quit", () => { quitting = true; });
-app.on("window-all-closed", () => {});
+app.on("window-all-closed", () => { if (!conf.closeToTray) app.quit(); });
