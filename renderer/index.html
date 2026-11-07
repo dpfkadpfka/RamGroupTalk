@@ -316,6 +316,86 @@ body{margin:0}
 .calcon{font-size:.84rem;display:flex;align-items:center;gap:8px;justify-content:space-between;background:var(--accbg);color:var(--acc);border-radius:9px;padding:8px 12px}
 .calcon[hidden]{display:none}
 .gstate{font-size:.86rem;font-weight:700;flex:1}
+/* ===== 세부 조정: 모서리·간격·칸 너비 ===== */
+.cd{border-radius:var(--r,10px)!important;padding:calc(12px * var(--dn,1)) calc(13px * var(--dn,1))!important;margin-bottom:calc(8px * var(--dn,1))!important}
+.col{flex-basis:var(--colw,300px)!important;border-radius:calc(var(--r,10px) + 3px)!important}
+.ch{border-radius:calc(var(--r,10px) - 1px)!important}
+.board{gap:calc(14px * var(--dn,1))!important}
+.dues,.empty{border-radius:calc(var(--r,10px) + 1px)!important}
+@media (max-width:860px){.col{flex-basis:min(var(--colw,300px),86vw)!important}}
+/* 주제 머리 모양 */
+:root[data-head="soft"] .ch{background:color-mix(in srgb,var(--c) 16%,var(--card))!important;color:color-mix(in srgb,var(--c) 70%,var(--fg))!important}
+:root[data-head="soft"] .ch em{background:color-mix(in srgb,var(--c) 18%,transparent)}
+:root[data-head="line"] .ch{background:var(--card)!important;color:var(--fg)!important;border-left:4px solid var(--c);box-shadow:var(--sh)}
+:root[data-head="line"] .ch em{background:var(--chip);color:var(--muted)}
+:root[data-head="dot"] .ch{background:transparent!important;color:var(--fg)!important;box-shadow:none!important;padding-left:6px!important}
+:root[data-head="dot"] .ch::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--c);flex:none;order:-1}
+:root[data-head="dot"] .ch .grip{display:none}
+:root[data-head="dot"] .ch em{background:var(--chip);color:var(--muted)}
+
+/* ===== 유리 모양 ===== */
+:root[data-look="glass"] body{background:var(--bgimg) center/cover fixed}
+:root[data-look="glass"] .app{background:none!important}
+:root[data-look="glass"] .tb,:root[data-look="glass"] .side,:root[data-look="glass"] .sbar{background:color-mix(in srgb,var(--side) 52%,transparent)!important;backdrop-filter:blur(22px) saturate(1.4);border-color:var(--line)!important}
+:root[data-look="glass"] .col{background:color-mix(in srgb,var(--card) 26%,transparent)!important;backdrop-filter:blur(14px);border:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+:root[data-look="glass"] .cd,:root[data-look="glass"] .dues{background:color-mix(in srgb,var(--card) 66%,transparent)!important;border-color:color-mix(in srgb,var(--line) 80%,transparent)!important;box-shadow:0 4px 18px rgba(0,0,0,.06)}
+:root[data-look="glass"][data-theme="dark"] .cd{background:color-mix(in srgb,var(--card) 72%,transparent)!important;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+:root[data-look="glass"] .it.rm{background:color-mix(in srgb,var(--c) 14%,transparent)}
+:root[data-look="glass"] .sgrp .up{background:color-mix(in srgb,var(--card) 60%,transparent)!important}
+:root[data-look="glass"] .tbmid .search input{background:color-mix(in srgb,var(--card) 55%,transparent)}
+:root[data-look="glass"] .board::-webkit-scrollbar-thumb{border-color:transparent;background-clip:padding-box}
+
+/* ===== 입체 모양 ===== */
+:root[data-look="3d"] body{background:var(--bgimg) fixed}
+:root[data-look="3d"] .app{background:none!important}
+:root[data-look="3d"] .side{border-right:0!important;box-shadow:inset -1px 0 0 var(--hl),4px 0 18px var(--shc)}
+:root[data-look="3d"] .tb{box-shadow:0 2px 10px var(--shc);border-bottom:0;position:relative;z-index:2}
+:root[data-look="3d"] .col{background:color-mix(in srgb,var(--line) 40%,transparent)!important;box-shadow:inset 0 2px 5px var(--shc),inset 0 -1px 0 var(--hl)}
+:root[data-look="3d"] .cd{border:0!important;box-shadow:inset 0 1px 0 var(--hl),0 2px 0 var(--shc),0 8px 18px var(--shc)!important;transition:transform .14s,box-shadow .14s}
+:root[data-look="3d"] .cd:hover{transform:translateY(-2px);box-shadow:inset 0 1px 0 var(--hl),0 4px 0 var(--shc),0 14px 26px var(--shd)!important}
+:root[data-look="3d"] .ch{box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 3px 0 color-mix(in srgb,var(--c) 65%,#000)!important}
+:root[data-look="3d"][data-head="line"] .ch,:root[data-look="3d"][data-head="soft"] .ch{box-shadow:inset 0 1px 0 var(--hl),0 3px 0 var(--shc)!important}
+:root[data-look="3d"][data-head="dot"] .ch{box-shadow:none!important}
+:root[data-look="3d"] .go{box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 3px 0 var(--acc2),0 8px 16px color-mix(in srgb,var(--acc) 35%,transparent)!important;transition:transform .1s,box-shadow .1s}
+:root[data-look="3d"] .go:active{transform:translateY(2px);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 1px 0 var(--acc2)!important}
+:root[data-look="3d"] .sgrp .up{border:0!important;box-shadow:inset 0 1px 0 var(--hl),0 2px 0 var(--shc),0 4px 10px var(--shc)}
+:root[data-look="3d"] .sgrp .up:active{transform:translateY(1px)}
+:root[data-look="3d"] .it[aria-pressed="true"]{box-shadow:inset 0 1px 0 var(--hl),0 2px 0 var(--shc)}
+:root[data-look="3d"] .it.rm[aria-pressed="true"]{box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 2px 0 color-mix(in srgb,var(--c) 65%,#000)}
+:root[data-look="3d"] .dues{border:0!important;box-shadow:inset 0 1px 0 var(--hl),0 2px 0 var(--shc),0 6px 14px var(--shc)}
+:root[data-look="3d"] .ab{border:0;box-shadow:inset 0 1px 0 var(--hl),0 1px 0 var(--shc),0 2px 5px var(--shc)}
+:root[data-look="3d"] .tbmid .search input{border:0;box-shadow:inset 0 2px 4px var(--shc)}
+:root[data-look="3d"] .btn{border:0;box-shadow:inset 0 1px 0 var(--hl),0 2px 0 var(--shc),0 4px 10px var(--shc)}
+
+/* ===== 디자인 탭: 스킨 고르기 ===== */
+.kseg{display:flex;gap:6px}
+.kseg button{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid var(--line2);background:var(--card);border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:700;font-size:.88rem;color:var(--fg2)}
+.kseg button small{font-weight:500;font-size:.72rem;color:var(--muted)}
+.kseg button.on{border-color:var(--acc);background:var(--accbg);color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.sklbl{font-size:.72rem;font-weight:700;color:var(--faint);letter-spacing:.04em;margin:10px 0 2px}
+.skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+.sk{border:0;background:none;padding:0;cursor:pointer;display:flex;flex-direction:column;gap:5px;text-align:left;color:var(--fg2);font-size:.78rem;font-weight:600}
+.sk .pv{position:relative;height:68px;border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px var(--line2);transition:box-shadow .12s,transform .12s}
+.sk:hover .pv{transform:translateY(-1px);box-shadow:0 0 0 1px var(--line2),0 6px 14px rgba(0,0,0,.12)}
+.sk[aria-pressed="true"] .pv{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--acc)}
+.sk[aria-pressed="true"]{color:var(--acc)}
+.pv .ps{position:absolute;left:0;top:0;bottom:0;width:30%}
+.pv .pg{position:absolute;left:6px;top:7px;width:14%;height:6px;border-radius:3px}
+.pv .pc{position:absolute;left:38%;right:8px;height:16px;border-radius:5px}
+.pv .pc.a{top:10px}.pv .pc.b{top:31px;right:22%}
+.pv .pd{position:absolute;right:8px;bottom:8px;width:12px;height:12px;border-radius:50%}
+.pv.glass .ps{backdrop-filter:blur(6px)}
+.pv.k3d .pc{box-shadow:0 2px 0 rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.12)}
+.pv.def{background:linear-gradient(90deg,#ffffff 0 50%,#18181b 50%)}
+.fine{display:grid;grid-template-columns:1fr 1fr;gap:16px 20px}
+.fine .fld .seg{flex-wrap:wrap}
+.fine select{border:1px solid var(--line2);border-radius:9px;background:var(--bg);padding:7px 10px;font:inherit;font-size:.86rem;color:var(--fg)}
+@media (max-width:620px){.fine{grid-template-columns:1fr}}
+.accs button.sdef{background:conic-gradient(#2563eb,#db2777,#16a34a,#7c3aed,#2563eb);position:relative}
+.accs button.sdef::after{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--card)}
+.lookh{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.lookh .btn{height:30px;padding:0 12px;font-size:.8rem}
+.go,.btn.pri{color:var(--onacc,#fff)!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -376,10 +456,20 @@ body{margin:0}
       <div class="fld"><b>구글 계정 연결</b><small>연결하면 ① 정리 내용이 내 구글 드라이브의 앱 전용 공간에 저장돼 <b>집·학교 등 어느 컴퓨터에서든 같은 내용</b>이 보이고, ② 카드의 달력 버튼으로 구글 캘린더에 일정을 바로 넣어요(Ram Calendar와 같은 규칙, 알림 없음).</small><span class="row"><span id="g-state" class="gstate"></span><button class="btn pri" type="button" id="g-login">구글 계정 연결</button><button class="btn" type="button" id="g-sync">지금 동기화</button><button class="btn" type="button" id="g-logout">연결 끊기</button></span></div>
     </section>
     <section class="spn" data-pane="look" hidden>
-      <h4>화면·디자인</h4>
-      <div class="fld"><b>테마</b><div class="seg" id="s-theme"><button type="button" data-v="auto">자동</button><button type="button" data-v="light">밝게</button><button type="button" data-v="dark">어둡게</button></div></div>
-      <div class="fld"><b>글자 크기</b><div class="seg" id="s-size"><button type="button" data-v="14">작게</button><button type="button" data-v="15">보통</button><button type="button" data-v="16.5">크게</button></div></div>
-      <div class="fld"><b>핵심 색</b><small>가져오기 버튼, 선택된 메뉴, 강조 표시에 쓰는 색이에요.</small><div class="accs" id="s-acc"></div><label class="accc">직접 고르기 <input type="color" id="s-accc"></label></div>
+      <div class="lookh"><h4>스킨</h4><button class="btn" type="button" id="s-reset">처음 디자인으로</button></div>
+      <div class="kseg" id="s-kind"></div>
+      <div id="s-skins"></div>
+      <h4 style="margin-top:6px">세부 조정 <small style="font-weight:500;color:var(--muted);font-size:.78rem">고른 스킨 위에 덮어써요</small></h4>
+      <div class="fld"><b>핵심 색</b><small>가져오기 버튼, 선택된 메뉴, 강조 표시에 쓰는 색이에요. 첫 번째 동그라미는 스킨 색이에요.</small><div class="accs" id="s-acc"></div><label class="accc">직접 고르기 <input type="color" id="s-accc"></label></div>
+      <div class="fine">
+        <div class="fld"><b>주제 머리 모양</b><div class="seg" id="s-head"><button type="button" data-v="fill">색 채움</button><button type="button" data-v="soft">연한 색</button><button type="button" data-v="line">왼쪽 선</button><button type="button" data-v="dot">점만</button></div></div>
+        <div class="fld"><b>카드 모서리</b><div class="seg" id="s-radius"><button type="button" data-v="sharp">각지게</button><button type="button" data-v="normal">보통</button><button type="button" data-v="round">둥글게</button></div></div>
+        <div class="fld"><b>간격</b><div class="seg" id="s-density"><button type="button" data-v="tight">촘촘</button><button type="button" data-v="normal">보통</button><button type="button" data-v="loose">넉넉</button></div></div>
+        <div class="fld"><b>주제 칸 너비</b><div class="seg" id="s-colw"><button type="button" data-v="narrow">좁게</button><button type="button" data-v="normal">보통</button><button type="button" data-v="wide">넓게</button></div></div>
+        <div class="fld"><b>글자 크기</b><div class="seg" id="s-size"><button type="button" data-v="14">작게</button><button type="button" data-v="15">보통</button><button type="button" data-v="16.5">크게</button></div></div>
+        <div class="fld"><b>글꼴</b><select id="s-font"></select></div>
+        <div class="fld" id="s-themerow"><b>기본 스킨 밝기</b><div class="seg" id="s-theme"><button type="button" data-v="auto">자동</button><button type="button" data-v="light">밝게</button><button type="button" data-v="dark">어둡게</button></div></div>
+      </div>
       <div class="fld"><b>주제 색</b><small>왼쪽 주제 이름 앞 색 네모를 누르면 바꿀 수 있어요. 주제와 카드는 끌어서 순서를 바꿔요.</small></div>
       <label class="chk"><input type="checkbox" id="s-top">항상 다른 창 위에 두기</label>
       <label class="chk"><input type="checkbox" id="s-login">윈도우 켤 때 자동 실행</label>
@@ -407,6 +497,7 @@ body{margin:0}
 <div class="drop" id="drop" hidden><div>카톡 파일을 여기에 놓으세요<small>txt 여러 개도 한 번에 돼요</small></div></div>
 <div class="job" id="job" hidden><h4>카톡 정리 중<button id="jobx" aria-label="닫기">✕</button></h4><ul id="joblist"></ul></div>
 
+<script src="skins.js"></script>
 <script>
 // ---- RamGroupTalk 로컬 저장소: 정리함 화면이 쓰던 db·AI 연결을 이 컴퓨터 저장 파일과 제미나이로 바꿔 줌 ----
 (function(){
@@ -500,7 +591,7 @@ function render(){
   board.innerHTML=cols.map(r=>{
     const list=shown.filter(i=>i.room===r).sort(byRank);
     const c=colorOf(r);
-    return `<div class="col" data-col="${esc(r)}"><div class="ch" draggable="${state.canWrite}" data-colh="${esc(r)}" title="끌어서 주제 순서 바꾸기" style="background:${c}"><span class="grip" aria-hidden="true">⋮⋮</span>${esc(r)}<em>${list.length}</em></div><div class="colbody">${list.length?list.map(card).join(""):'<div class="colempty">항목 없음</div>'}</div></div>`;
+    return `<div class="col" data-col="${esc(r)}"><div class="ch" draggable="${state.canWrite}" data-colh="${esc(r)}" title="끌어서 주제 순서 바꾸기" style="background:${c};--c:${c}"><span class="grip" aria-hidden="true">⋮⋮</span>${esc(r)}<em>${list.length}</em></div><div class="colbody">${list.length?list.map(card).join(""):'<div class="colempty">항목 없음</div>'}</div></div>`;
   }).join("");
 }
 function card(i){
@@ -748,7 +839,7 @@ async function openSettings(){
   const c=await RT.getConf();
   $("s-rooms").value=(c.rooms||[]).join("\n");$("s-key").value=c.geminiKey||"";$("s-time").value=c.dailyTime||"";
   $("s-dir").value=c.exportDir||"";$("s-top").checked=!!c.alwaysOnTop;$("s-login").checked=!!c.openAtLogin;$("s-tray").checked=!!c.closeToTray;$("s-model").value=c.model||"";$("s-keymsg").textContent="";
-  accSel=c.accent||ACCS[0];accRender();segSet("s-theme",c.theme||"auto");segSet("s-size",String(c.fontSize||15));
+  look=lookFrom(c);lookRender();
   showTab(!c.rooms.length?"kakao":!c.hasKey?"ai":"kakao");gSync();
   $("setmodal").hidden=false;
 }
@@ -756,16 +847,47 @@ function showTab(t){document.querySelectorAll(".stab").forEach(b=>b.classList.to
 document.querySelectorAll(".stab").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function segSet(id,v){$(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));}
 const segGet=id=>($(id).querySelector("button.on")||{}).dataset?.v;
-["s-theme","s-size"].forEach(id=>$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;segSet(id,b.dataset.v);applyLook(segGet("s-theme"),segGet("s-size"));}));
 const ACCS=["#2563eb","#4f46e5","#7c3aed","#0891b2","#0d9488","#16a34a","#db2777","#e11d48","#ea580c","#334155"];
-function mix(h,w,a){const n=x=>parseInt(h.slice(x,x+2),16),m=x=>Math.round(n(x)*(1-a)+w*a);return "#"+[1,3,5].map(i=>m(i).toString(16).padStart(2,"0")).join("");}
-function applyAccent(c){if(!/^#[0-9a-f]{6}$/i.test(c||""))c=ACCS[0];const r=document.documentElement.style;r.setProperty("--acc",c);r.setProperty("--acc2",mix(c,0,.15));r.setProperty("--accbg",mix(c,255,.9));r.setProperty("--accbgd",mix(c,17,.82));}
-let accSel=ACCS[0];
-function accRender(){$("s-acc").innerHTML=ACCS.map(c=>`<button type="button" style="background:${c}" data-c="${c}" aria-pressed="${c===accSel}" title="${c}"></button>`).join("");$("s-accc").value=accSel;}
-$("s-acc").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;accSel=b.dataset.c;accRender();applyAccent(accSel);});
-$("s-accc").addEventListener("input",e=>{accSel=e.target.value;accRender();applyAccent(accSel);});
-function applyLook(theme,size){const r=document.documentElement;if(theme&&theme!=="auto")r.dataset.theme=theme;else delete r.dataset.theme;document.body.style.fontSize=(size||15)+"px";}
-RT.getConf().then(c=>{applyLook(c.theme,c.fontSize);applyAccent(c.accent);});
+const SK=window.RGTSkins;
+const LOOKKEYS=["skin","theme","fontSize","accent","font","radius","density","colw","head"];
+let look={};
+const lookFrom=c=>{const d={};LOOKKEYS.forEach(k=>d[k]=c[k]);if(!d.skin&&d.accent==="#2563eb")d.accent="";return d;};
+function applyDesign(d){SK.apply(d);}
+let accSel="";
+function accRender(){$("s-acc").innerHTML=`<button type="button" class="sdef" data-c="" aria-pressed="${!accSel}" title="스킨 색"></button>`+ACCS.map(c=>`<button type="button" style="background:${c}" data-c="${c}" aria-pressed="${c===accSel}" title="${c}"></button>`).join("");const k=SK.get(look.skin);$("s-accc").value=accSel||(k?k.acc:"#2563eb");}
+$("s-acc").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;accSel=b.dataset.c;look.accent=accSel;accRender();applyDesign(look);});
+$("s-accc").addEventListener("input",e=>{accSel=e.target.value;look.accent=accSel;accRender();applyDesign(look);});
+let skKind="flat";
+function pvHtml(k){if(!k)return `<span class="pv def"></span>`;const cls=k.kind==="glass"?"glass":k.kind==="3d"?"k3d":"";const side=k.kind==="glass"?SK.mix(k.side,k.dark?"#000000":"#ffffff",0)+(k.dark?"99":"88"):k.side;const card=k.kind==="glass"?k.card+(k.dark?"cc":"b3"):k.card;
+  return `<span class="pv ${cls}" style="background:${k.bg}"><span class="ps" style="background:${side};box-shadow:inset -1px 0 0 ${k.line}"></span><span class="pg" style="background:${k.acc}"></span><span class="pc a" style="background:${card};box-shadow:0 0 0 1px ${k.line}"></span><span class="pc b" style="background:${card};box-shadow:0 0 0 1px ${k.line}"></span><span class="pd" style="background:${k.acc}"></span></span>`;}
+function skinsRender(){
+  $("s-kind").innerHTML=SK.KINDS.map(([v,t,s])=>`<button type="button" data-v="${v}" class="${v===skKind?"on":""}">${t}<small>${s}</small></button>`).join("");
+  const all=Object.entries(SK.SKINS[skKind]).map(([n,v])=>SK.get(skKind+":"+n));
+  const btn=(id,name,k)=>`<button type="button" class="sk" data-skin="${id}" aria-pressed="${(look.skin||"")===id}">${pvHtml(k)}${name}</button>`;
+  let h=`<div class="sklbl">밝은 스킨</div><div class="skins">`+(skKind==="flat"?btn("","기본 (밝기 따로)",null):"")+all.filter(k=>!k.dark).map(k=>btn(k.id,k.name,k)).join("")+`</div>`;
+  h+=`<div class="sklbl">어두운 스킨</div><div class="skins">`+all.filter(k=>k.dark).map(k=>btn(k.id,k.name,k)).join("")+`</div>`;
+  $("s-skins").innerHTML=h;$("s-themerow").hidden=!!look.skin;
+}
+$("s-kind").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;skKind=b.dataset.v;skinsRender();});
+$("s-skins").addEventListener("click",e=>{const b=e.target.closest(".sk");if(!b)return;look.skin=b.dataset.skin;accSel="";look.accent="";accRender();skinsRender();applyDesign(look);});
+const SEGMAP={"s-theme":"theme","s-size":"fontSize","s-head":"head","s-radius":"radius","s-density":"density","s-colw":"colw"};
+Object.keys(SEGMAP).forEach(id=>$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;segSet(id,b.dataset.v);look[SEGMAP[id]]=id==="s-size"?+b.dataset.v:b.dataset.v;applyDesign(look);}));
+let fontsLoaded=false;
+async function fontsRender(){
+  const sel=$("s-font");const cur=look.font||"";
+  if(!fontsLoaded){fontsLoaded=true;let names=[];
+    try{if(window.queryLocalFonts){const fs=await Promise.race([window.queryLocalFonts(),new Promise(r=>setTimeout(()=>r([]),2500))]);names=[...new Set(fs.map(f=>f.family))];}}catch{}
+    const ko=/[가-힣]|Nanum|Noto Sans KR|Noto Serif KR|Pretendard|Gmarket|Spoqa|S-Core|Cafe24|BM |Jalnan|Gowun|IBM Plex Sans KR|HY|Malgun/i;
+    const kos=names.filter(n=>ko.test(n)&&!/^Pretendard$|Malgun Gothic|맑은 고딕/.test(n)).sort((a,b)=>a.localeCompare(b,"ko"));
+    sel.innerHTML=`<option value="">Pretendard (기본)</option><option value="malgun">맑은 고딕</option>`+(kos.length?`<optgroup label="내 컴퓨터 한글 글꼴">`+kos.map(n=>`<option value="${esc(n)}" style="font-family:'${esc(n)}'">${esc(n)}</option>`).join("")+`</optgroup>`:"");}
+  if(cur&&![...sel.options].some(o=>o.value===cur))sel.insertAdjacentHTML("beforeend",`<option value="${esc(cur)}">${esc(cur)}</option>`);
+  sel.value=cur;
+}
+$("s-font").addEventListener("change",e=>{look.font=e.target.value;applyDesign(look);});
+function lookRender(){accSel=look.accent||"";const k=SK.get(look.skin);skKind=k?k.kind:"flat";accRender();skinsRender();
+  segSet("s-theme",look.theme||"auto");segSet("s-size",String(look.fontSize||15));segSet("s-head",look.head||"fill");segSet("s-radius",look.radius||"normal");segSet("s-density",look.density||"normal");segSet("s-colw",look.colw||"normal");fontsRender();}
+$("s-reset").onclick=()=>{look={skin:"",theme:"auto",fontSize:15,accent:"",font:"",radius:"normal",density:"normal",colw:"normal",head:"fill"};lookRender();applyDesign(look);};
+RT.getConf().then(c=>applyDesign(lookFrom(c)));
 $("s-imp").onclick=()=>$("s-impf").click();
 $("s-impf").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";if(f)await importBackup(f);});
 $("s-exp").onclick=async()=>{const r=await RT.exportBackup();if(r&&r.ok)toast("백업을 저장했어요");};
@@ -845,7 +967,7 @@ $("g-sync").onclick=async()=>{$("g-sync").disabled=true;const r=await RT.syncNow
 $("g-login").onclick=async()=>{$("g-login").disabled=true;const r=await RT.gcalLogin();$("g-login").disabled=false;toast(r.ok?"구글 캘린더를 연결했어요":"연결하지 못했어요");gSync();};
 $("g-logout").onclick=async()=>{await RT.gcalLogout();toast("연결을 끊었어요");gSync();};
 $("setbtn").onclick=openSettings;
-$("s-cancel").onclick=()=>{$("setmodal").hidden=true;RT.getConf().then(c=>{applyLook(c.theme,c.fontSize);applyAccent(c.accent);});};
+$("s-cancel").onclick=()=>{$("setmodal").hidden=true;RT.getConf().then(c=>applyDesign(lookFrom(c)));};
 $("s-keylink").onclick=()=>RT.openUrl("https://aistudio.google.com/apikey");
 $("s-open").onclick=()=>RT.openFolder();
 $("s-pick").onclick=async()=>{const p=await RT.pickFolder($("s-dir").value);if(p)$("s-dir").value=p;};
@@ -860,7 +982,7 @@ $("s-keyok").onclick=async()=>{
 };
 $("s-save").onclick=async()=>{
   const rooms=$("s-rooms").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  await RT.setConf({accent:accSel,theme:segGet("s-theme")||"auto",fontSize:+(segGet("s-size")||15),rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,closeToTray:$("s-tray").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
+  await RT.setConf({...look,accent:accSel,theme:look.theme||"auto",fontSize:+(look.fontSize||15),rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,closeToTray:$("s-tray").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
   $("setmodal").hidden=true;syncPin();toast("설정을 저장했어요");
 };
 RT.getConf().then(c=>{if(!c.rooms.length||!c.hasKey)setTimeout(openSettings,600);});
