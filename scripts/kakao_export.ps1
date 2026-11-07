@@ -1,4 +1,4 @@
-﻿param([string]$RoomsFile, [string]$OutDir, [string]$ResultFile)
+﻿param([string]$RoomsFile, [string]$OutDir, [string]$ResultFile, [string]$StopFile = "")
 # RamTalk: 카톡 PC 단톡방 대화를 자동으로 내보내기(Ctrl+S) 하는 스크립트
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
@@ -16,6 +16,7 @@ public class W32 {
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint dx, uint dy, uint d, UIntPtr e);
   [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
@@ -27,6 +28,7 @@ public class W32 {
     return r; }
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte sc, uint f, UIntPtr e);
   public static void Fg(IntPtr h) { keybd_event(0x12,0,0,UIntPtr.Zero); keybd_event(0x12,0,2,UIntPtr.Zero); ShowWindow(h, 9); SetForegroundWindow(h); }
+  public static void CtrlKey(byte k) { keybd_event(0x11,0,0,UIntPtr.Zero); keybd_event(k,0,0,UIntPtr.Zero); System.Threading.Thread.Sleep(60); keybd_event(k,0,2,UIntPtr.Zero); keybd_event(0x11,0,2,UIntPtr.Zero); }
   public static void CtrlS() { keybd_event(0x11,0,0,UIntPtr.Zero); keybd_event(0x53,0,0,UIntPtr.Zero); System.Threading.Thread.Sleep(60); keybd_event(0x53,0,2,UIntPtr.Zero); keybd_event(0x11,0,2,UIntPtr.Zero); }
   [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr p, EnumProc f, IntPtr l);
   [DllImport("user32.dll")] public static extern int GetDlgCtrlID(IntPtr h);
@@ -52,7 +54,9 @@ public class W32 {
 $AE = [System.Windows.Automation.AutomationElement]
 $TS = [System.Windows.Automation.TreeScope]
 $result = @{ saved = @(); errors = @() }
-function Done { $result | ConvertTo-Json -Depth 4 | Out-File $ResultFile -Encoding utf8; exit }
+function Save { $result | ConvertTo-Json -Depth 4 | Out-File $ResultFile -Encoding utf8 }
+function Done { Save; exit }
+function Stopped { return ($StopFile -and (Test-Path $StopFile)) }
 
 $rooms = Get-Content $RoomsFile -Raw -Encoding UTF8 | ConvertFrom-Json
 $kakao = Get-Process KakaoTalk -ErrorAction SilentlyContinue
@@ -68,38 +72,30 @@ function FindRoom($name) {
 function Focus($h) { [W32]::Fg($h); Start-Sleep -Milliseconds 200 }
 function Paste($text) { [System.Windows.Forms.Clipboard]::SetText($text); [System.Windows.Forms.SendKeys]::SendWait("^a"); Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait("^v") }
 
-# 메인 창 기준 위치 (100% 배율 기준 좌표, 화면 배율에 맞춰 늘림)
+# 방이 안 열려 있으면: 카톡 메인 창에서 통합검색(Ctrl+F) → 방 이름 붙여넣기 → Enter (좌표 클릭 없음)
 function MainWin { KWins | Where-Object { $_[2] -eq "카카오톡" -and $_[3] -ne "#32770" } | Select-Object -First 1 }
-function MainClick($rx, $ry, [switch]$Double) {
-  $m = MainWin; if (-not $m) { return $false }
-  $h = [IntPtr][long]$m[0]; Focus $h
-  $r = New-Object W32+RECT; [W32]::GetWindowRect($h, [ref]$r) | Out-Null
-  $s = [W32]::GetDpiForWindow($h) / 96.0; if ($s -le 0) { $s = 1 }
-  $x = [int]($r.L + $rx * $s); $y = [int]($r.T + $ry * $s)
-  if ($Double) { [W32]::DClick($x, $y) } else { [W32]::Click($x, $y) }
-  Start-Sleep -Milliseconds 400; return $true
-}
-function TryOpen($name, $tabX) {
-  MainClick 33 117 | Out-Null            # 왼쪽 채팅 아이콘
-  MainClick $tabX 57 | Out-Null          # 채팅 / 오픈채팅 머리글
-  MainClick 250 103 | Out-Null           # 검색칸
-  Paste $name; Start-Sleep -Milliseconds 900
+function WaitRoom($name) { for ($i = 0; $i -lt 10; $i++) { Start-Sleep -Milliseconds 250; $w = FindRoom $name; if ($w) { return $w } }; return $null }
+function TryOpen($name) {
+  $m = MainWin; if (-not $m) { return $null }
+  $mh = [IntPtr][long]$m[0]; Focus $mh
+  [W32]::CtrlKey(0x46); Start-Sleep -Milliseconds 500      # Ctrl+F 통합검색
+  if ((MainWin) -and [W32]::GetForegroundWindow() -ne $mh) { return $null }
+  Paste $name; Start-Sleep -Milliseconds 1000
   [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-  for ($i = 0; $i -lt 8; $i++) { Start-Sleep -Milliseconds 250; $w = FindRoom $name; if ($w) { return $w } }
-  MainClick 300 195 -Double | Out-Null   # 검색 결과 첫 줄
-  for ($i = 0; $i -lt 8; $i++) { Start-Sleep -Milliseconds 250; $w = FindRoom $name; if ($w) { return $w } }
-  return $null
+  $w = WaitRoom $name; if ($w) { return $w }
+  if ([W32]::GetForegroundWindow() -eq $mh) { [System.Windows.Forms.SendKeys]::SendWait("{DOWN}"); Start-Sleep -Milliseconds 150; [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") }
+  return (WaitRoom $name)
 }
-function ClearSearch { if (MainWin) { MainClick 250 103 | Out-Null; [System.Windows.Forms.SendKeys]::SendWait("^a{BACKSPACE}{ESC}") } }
+function ClearSearch { $m = MainWin; if ($m) { $mh = [IntPtr][long]$m[0]; Focus $mh; if ([W32]::GetForegroundWindow() -eq $mh) { [System.Windows.Forms.SendKeys]::SendWait("{ESC}"); Start-Sleep -Milliseconds 150; [System.Windows.Forms.SendKeys]::SendWait("{ESC}") } } }
 
 foreach ($room in $rooms) {
   $name = [string]$room
   if (-not $name.Trim()) { continue }
+  if (Stopped) { $result.errors += @{ room = ""; msg = "중단했어요" }; break }
   try {
     $hit = FindRoom $name; $openedByMe = $false
     if (-not $hit) {
-      $hit = TryOpen $name 105                 # 1) 채팅에서 찾기
-      if (-not $hit) { ClearSearch; $hit = TryOpen $name 185 }   # 2) 오픈채팅에서 찾기
+      $hit = TryOpen $name
       ClearSearch
       if (-not $hit) { $result.errors += @{ room = $name; msg = "방을 찾지 못했어요(이름이 카톡 방 이름과 똑같은지 확인)" }; continue }
       $openedByMe = $true
@@ -131,6 +127,7 @@ foreach ($room in $rooms) {
     $last = -1; $same = 0; $t0 = Get-Date; $popped = $false
     while (((Get-Date) - $t0).TotalSeconds -lt 240) {
       Start-Sleep -Milliseconds 250
+      if (Stopped) { break }
       $pop = @(KWins | Where-Object { $before -notcontains $_[0] -and $_[3] -eq "EVA_Window_Dblclk" })
       $size = if (Test-Path $path) { (Get-Item $path).Length } else { -1 }
       if ($size -gt 0 -and $size -eq $last) { $same++ } else { $same = 0 }
@@ -150,6 +147,7 @@ foreach ($room in $rooms) {
     else { $result.errors += @{ room = $name; msg = "저장이 끝나지 않았어요(대화가 아주 많으면 다시 시도)" } }
     [W32]::PostMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null   # 카톡방 닫기
     Start-Sleep -Milliseconds 400
+    Save
   } catch { $result.errors += @{ room = $name; msg = $_.Exception.Message } }
 }
 Done

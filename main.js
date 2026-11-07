@@ -1,5 +1,5 @@
 // RamGroupTalk — 카톡 단톡방 자동 저장·정리 위젯 (만든 사람: 김예람)
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, dialog, globalShortcut } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { execFile } = require("child_process");
@@ -55,6 +55,7 @@ function createTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "열기", click: () => { win.show(); win.focus(); } },
     { label: "지금 카톡 가져오기", click: () => { win.show(); win.webContents.send("run-export"); } },
+    { label: "가져오기 중단", click: () => cancelExport() },
     { type: "separator" },
     { label: "끝내기", click: () => { quitting = true; app.quit(); } }
   ]));
@@ -66,6 +67,15 @@ function scriptPath() {
   const p1 = path.join(process.resourcesPath || "", "scripts", "kakao_export.ps1");
   return fs.existsSync(p1) ? p1 : path.join(__dirname, "scripts", "kakao_export.ps1");
 }
+const STOP_FILE = path.join(DATA_DIR, "export-stop.flag");
+let exportProc = null, killT = null;
+function cancelExport() {
+  if (!exportProc) return false;
+  try { fs.writeFileSync(STOP_FILE, "stop"); } catch {}
+  const pid = exportProc.pid;
+  killT = setTimeout(() => { if (exportProc && exportProc.pid === pid) execFile("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true }, () => {}); }, 6000);
+  return true;
+}
 function runExport() {
   return new Promise(resolve => {
     if (process.platform !== "win32") return resolve({ ok: false, error: "윈도우에서만 쓸 수 있어요" });
@@ -75,9 +85,12 @@ function runExport() {
     fs.writeFileSync(roomsFile, JSON.stringify(conf.rooms), "utf8");
     const resultFile = path.join(DATA_DIR, "export-result.json");
     try { fs.unlinkSync(resultFile); } catch {}
-    execFile("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-STA", "-File", scriptPath(),
-      "-RoomsFile", roomsFile, "-OutDir", conf.exportDir, "-ResultFile", resultFile],
+    try { fs.unlinkSync(STOP_FILE); } catch {}
+    try { globalShortcut.register("CommandOrControl+Shift+Q", () => cancelExport()); } catch {}
+    exportProc = execFile("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-STA", "-File", scriptPath(),
+      "-RoomsFile", roomsFile, "-OutDir", conf.exportDir, "-ResultFile", resultFile, "-StopFile", STOP_FILE],
       { windowsHide: true, timeout: 10 * 60 * 1000 }, (err) => {
+        exportProc = null; clearTimeout(killT); try { globalShortcut.unregister("CommandOrControl+Shift+Q"); } catch {}
         const res = readJson(resultFile, null);
         if (res) return resolve({ ok: true, ...res });
         resolve({ ok: false, error: err ? String(err.message || err).slice(0, 300) : "결과를 읽지 못했어요" });
@@ -117,6 +130,7 @@ ipcMain.handle("conf:set", (_e, patch) => {
   return true;
 });
 ipcMain.handle("export:run", () => runExport());
+ipcMain.handle("export:cancel", () => cancelExport());
 ipcMain.handle("file:read", (_e, p) => fs.readFileSync(p, "utf8"));
 ipcMain.handle("ai:json", async (_e, prompt) => {
   try { return { ok: true, value: await gemini(prompt) }; }

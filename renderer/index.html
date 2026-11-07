@@ -129,6 +129,7 @@ body{margin:0}
 .go{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;height:42px;border:0;border-radius:10px;background:var(--fg);color:var(--bg);font-weight:800;font-size:.92rem;cursor:pointer;margin-bottom:6px}
 .go:hover{filter:brightness(1.15)}
 .go:disabled{opacity:.6;cursor:default}
+.go.stop{background:#dc2626;border-color:#dc2626}
 .setbtn{width:100%;margin-top:14px;display:flex;align-items:center;gap:8px;border:0;background:none;padding:8px 10px;border-radius:8px;color:var(--muted);font-weight:600;font-size:.88rem;cursor:pointer}
 .setbtn:hover{background:var(--hover);color:var(--fg)}
 .modal{position:fixed;inset:0;z-index:70;background:rgba(15,15,20,.35);display:grid;place-items:center;padding:20px}
@@ -546,23 +547,27 @@ async function syncPin(){const c=await RT.getConf();$("pinbtn").setAttribute("ar
 $("pinbtn").onclick=async()=>{const on=$("pinbtn").getAttribute("aria-pressed")!=="true";await RT.setConf({alwaysOnTop:on});syncPin();toast(on?"항상 위에 둬요":"항상 위에 두기를 껐어요");};
 syncPin();
 let exporting=false;
+let goLabel=null;
 async function autoExport(){
-  if(exporting)return;exporting=true;$("gobtn").disabled=true;
+  if(exporting){$("gobtn").disabled=true;$("gobtn").lastChild.textContent="중단하는 중…";await RT.cancelExport();return;}
+  exporting=true;goLabel=goLabel||$("gobtn").lastChild.textContent;$("gobtn").lastChild.textContent="중단";$("gobtn").classList.add("stop");
   $("joblist").innerHTML="";$("job").hidden=false;$("job").querySelector("h4").firstChild.textContent="카톡 가져오는 중";
-  const row=jobRow("카톡에서 대화 저장");row.set("단톡방을 열어 저장하는 중… 끝날 때까지 마우스를 잠깐 놓아 주세요");
+  const row=jobRow("카톡에서 대화 저장");row.set("단톡방을 열어 저장하는 중… 마우스를 잠깐 놓아 주세요. 멈추려면 [중단] 또는 Ctrl+Shift+Q");
   try{
     const res=await RT.runExport();
     if(!res.ok){row.set(res.error||"가져오지 못했어요","err");return;}
     row.set(`${res.saved.length}개 방 저장 완료`,res.saved.length?"ok":"err");
+    $("gobtn").lastChild.textContent=goLabel;$("gobtn").classList.remove("stop");exporting=false;
     for(const e of (res.errors||[])){jobRow(e.room||"카톡").set(e.msg,"err");}
     if(res.saved.length){
       const files=res.saved.map(s=>({name:s.path.split(/[\\/]/).pop(),type:"text/plain",text:()=>RT.readFile(s.path)}));
       await importFiles(files,true);
     }
-  }finally{exporting=false;$("gobtn").disabled=false;}
+  }finally{exporting=false;$("gobtn").disabled=false;$("gobtn").lastChild.textContent=goLabel;$("gobtn").classList.remove("stop");}
 }
 $("gobtn").onclick=autoExport;
-RT.onRunExport(autoExport);
+RT.onRunExport(()=>{if(!exporting)autoExport();});
+window.addEventListener("keydown",e=>{if(e.key==="Escape"&&exporting)autoExport();});
 async function openSettings(){
   const c=await RT.getConf();
   $("s-rooms").value=(c.rooms||[]).join("\n");$("s-key").value=c.geminiKey||"";$("s-time").value=c.dailyTime||"";
