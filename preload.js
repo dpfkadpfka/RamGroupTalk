@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("ramtalk", {
   setConf: p => ipcRenderer.invoke("conf:set", p),
   cancelExport: () => ipcRenderer.invoke("export:cancel"),
   version: () => ipcRenderer.invoke("app:ver"),
+  pickFolder: cur => ipcRenderer.invoke("folder:pick", cur),
   runExport: () => ipcRenderer.invoke("export:run"),
   readFile: p => ipcRenderer.invoke("file:read", p),
   testKey: (key, model) => ipcRenderer.invoke("key:test", key, model),

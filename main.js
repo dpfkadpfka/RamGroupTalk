@@ -142,6 +142,10 @@ ipcMain.handle("conf:set", (_e, patch) => {
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: !!conf.openAtLogin });
   return true;
 });
+ipcMain.handle("folder:pick", async (_e, cur) => {
+  const r = await dialog.showOpenDialog(win, { title: "대화 저장 폴더 고르기", defaultPath: cur || conf.exportDir, properties: ["openDirectory", "createDirectory"] });
+  return r.canceled || !r.filePaths[0] ? "" : r.filePaths[0];
+});
 ipcMain.handle("app:ver", () => app.getVersion());
 ipcMain.handle("export:run", () => runExport());
 ipcMain.handle("export:cancel", () => cancelExport());
