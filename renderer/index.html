@@ -82,7 +82,7 @@ button,input{font:inherit;color:inherit;letter-spacing:inherit}
 .ab:hover{color:var(--fg);border-color:var(--line2)}
 .ab.del:hover{color:var(--red);border-color:var(--red)}
 .ab.confirm{background:var(--red);border-color:var(--red);color:#fff}
-.cd:hover .t{padding-right:68px}
+.cd:hover .t{padding-right:100px}
 .empty{grid-column:1/-1;background:var(--card);border:1px dashed var(--line2);border-radius:12px;padding:56px 24px;text-align:center;color:var(--muted)}
 .empty b{display:block;color:var(--fg);font-size:1.02rem;margin-bottom:4px}
 .colempty{font-size:.84rem;color:var(--faint);padding:14px 4px}
@@ -306,6 +306,16 @@ body{margin:0}
   .main{flex:1;min-height:0;height:auto}
   .col{flex-basis:min(300px,86vw)}
 }
+
+/* 캘린더 등록 창 */
+.modal .box.cal{width:min(480px,100%);gap:12px}
+.modal select,.modal input[type=date]{border:1px solid var(--line2);border-radius:9px;background:var(--bg);padding:8px 10px;font:inherit;font-size:.9rem;color:var(--fg)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cprev{margin:0;font-size:.82rem;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px}
+.cprev b{color:var(--fg)}
+.calcon{font-size:.84rem;display:flex;align-items:center;gap:8px;justify-content:space-between;background:var(--accbg);color:var(--acc);border-radius:9px;padding:8px 12px}
+.calcon[hidden]{display:none}
+.gstate{font-size:.86rem;font-weight:700;flex:1}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -345,6 +355,7 @@ body{margin:0}
     <h3>설정</h3>
     <button type="button" class="stab on" data-tab="kakao"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.3A8 8 0 1 1 21 12z"/></svg>카톡 가져오기</button>
     <button type="button" class="stab" data-tab="ai"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2"/><circle cx="12" cy="12" r="3"/></svg>AI 요약</button>
+    <button type="button" class="stab" data-tab="gcal"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>구글 캘린더</button>
     <button type="button" class="stab" data-tab="look"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 1 0 0 20c1 0 1.6-.8 1.6-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16a6 6 0 0 0 6-6C22 6 17.5 2 12 2z"/></svg>화면·디자인</button>
     <button type="button" class="stab" data-tab="data"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>데이터·백업</button>
   </aside>
@@ -359,6 +370,10 @@ body{margin:0}
       <h4>AI 요약</h4>
       <label>제미나이 API 키 (무료)<small>구글 계정으로 무료 발급: <button class="lnk" type="button" id="s-keylink">aistudio.google.com/apikey</button> 에서 [Create API key] → 복사해서 붙여 넣고 [확인]. 무료 등급은 구글이 서비스 개선에 입력 내용을 쓸 수 있어요.</small><span class="row"><input type="password" id="s-key" placeholder="AIza..."><button class="btn pri" type="button" id="s-keyok">확인</button></span><small id="s-keymsg" class="kmsg"></small></label>
       <label>AI 모델<small>보통은 바꿀 필요 없어요.</small><input type="text" id="s-model"></label>
+    </section>
+    <section class="spn" data-pane="gcal" hidden>
+      <h4>구글 캘린더</h4>
+      <div class="fld"><b>연결</b><small>연결하면 카드의 달력 버튼으로 일정을 바로 넣어요. Ram Calendar와 같은 규칙(🔴[제출] 종일·색, 알림 없음)으로 들어가요.</small><span class="row"><span id="g-state" class="gstate"></span><button class="btn pri" type="button" id="g-login">구글 캘린더 연결</button><button class="btn" type="button" id="g-logout">연결 끊기</button></span></div>
     </section>
     <section class="spn" data-pane="look" hidden>
       <h4>화면·디자인</h4>
@@ -379,6 +394,16 @@ body{margin:0}
   </div>
 </div></div>
 
+<div class="modal" id="calmodal" hidden><div class="box cal">
+  <h3>구글 캘린더에 등록</h3>
+  <div class="calcon" id="c-con"></div>
+  <label>분류<select id="c-rule"></select></label>
+  <label>제목<input type="text" id="c-title"></label>
+  <div class="row2"><label>날짜<input type="date" id="c-date"></label><label>시각 (비우면 종일)<input type="time" id="c-time"></label></div>
+  <label>메모<textarea id="c-desc" style="min-height:80px"></textarea></label>
+  <p class="cprev" id="c-prev"></p>
+  <div class="btns"><button class="btn" type="button" id="c-cancel">취소</button><button class="btn pri" type="button" id="c-ok">등록</button></div>
+</div></div>
 <div class="drop" id="drop" hidden><div>카톡 파일을 여기에 놓으세요<small>txt 여러 개도 한 번에 돼요</small></div></div>
 <div class="job" id="job" hidden><h4>카톡 정리 중<button id="jobx" aria-label="닫기">✕</button></h4><ul id="joblist"></ul></div>
 
@@ -414,6 +439,7 @@ const ROOM_ORDER=["공모전","강의·연수","교사 업무","혜택·이벤�
 const PALETTE=["#3b82f6","#2563eb","#0ea5e9","#06b6d4","#14b8a6","#10b981","#22c55e","#84cc16","#8b5cf6","#a855f7","#d946ef","#ec4899","#f43f5e","#ef4444","#f97316","#ea580c","#78716c","#475569"];
 const DEFAULT={"공모전":"#ec4899","강의·연수":"#14b8a6","교사 업무":"#3b82f6","혜택·이벤트":"#f97316","AI 영상":"#8b5cf6","AI 도구":"#0ea5e9","기타":"#78716c"};
 const I={
+  cal:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M12 14v4M10 16h4"/></svg>',
   arc:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg>',
   del:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>',
   back:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>',
@@ -475,7 +501,7 @@ function render(){
 function card(i){
   const id=esc(i.id);
   const btns=!state.canWrite?"":state.view==="active"
-    ?`<button class="ab" data-a="archive" data-id="${id}" title="보관" aria-label="보관">${I.arc}</button><button class="ab del" data-a="del" data-id="${id}" title="삭제" aria-label="삭제">${I.del}</button>`
+    ?`<button class="ab" data-a="cal" data-id="${id}" title="구글 캘린더에 등록" aria-label="캘린더 등록">${I.cal}</button><button class="ab" data-a="archive" data-id="${id}" title="보관" aria-label="보관">${I.arc}</button><button class="ab del" data-a="del" data-id="${id}" title="삭제" aria-label="삭제">${I.del}</button>`
     :`<button class="ab" data-a="restore" data-id="${id}" title="되돌리기" aria-label="되돌리기">${I.back}</button><button class="ab del" data-a="del" data-id="${id}" title="삭제" aria-label="삭제">${I.del}</button>`;
   const ft=[i.deadline?`<span class="z due">${md(i.deadline)} 마감 · ${dd(i.deadline)}</span>`:"",
     i.link?`<a class="z lnk" href="${esc(i.link)}" target="_blank" rel="noopener">${esc(host(i.link))} ${I.ext}</a>`:"",
@@ -511,6 +537,7 @@ document.addEventListener("click",async e=>{
   const v=e.target.closest("[data-view]");if(v){state.view=v.dataset.view;render();return;}
   const r=e.target.closest("[data-room]");if(r){state.room=r.dataset.room;render();return;}
   const b=e.target.closest(".ab");if(!b||!db)return;
+  if(b.dataset.a==="cal"){const it=state.items.find(x=>x.id===b.dataset.id);if(it)openCal(it);return;}
   const ref=db.collection("items").doc(b.dataset.id);
   try{
     if(b.dataset.a==="archive"){await ref.update({status:"archived"});toast("보관함으로 옮겼어요");}
@@ -717,7 +744,7 @@ async function openSettings(){
   $("s-rooms").value=(c.rooms||[]).join("\n");$("s-key").value=c.geminiKey||"";$("s-time").value=c.dailyTime||"";
   $("s-dir").value=c.exportDir||"";$("s-top").checked=!!c.alwaysOnTop;$("s-login").checked=!!c.openAtLogin;$("s-tray").checked=!!c.closeToTray;$("s-model").value=c.model||"";$("s-keymsg").textContent="";
   accSel=c.accent||ACCS[0];accRender();segSet("s-theme",c.theme||"auto");segSet("s-size",String(c.fontSize||15));
-  showTab(!c.rooms.length?"kakao":!c.hasKey?"ai":"kakao");
+  showTab(!c.rooms.length?"kakao":!c.hasKey?"ai":"kakao");gSync();
   $("setmodal").hidden=false;
 }
 function showTab(t){document.querySelectorAll(".stab").forEach(b=>b.classList.toggle("on",b.dataset.tab===t));document.querySelectorAll(".spn").forEach(p=>p.hidden=p.dataset.pane!==t);}
@@ -743,6 +770,74 @@ async function importBackup(f){
   let n=0;for(const [p,d] of Object.entries(docs)){if(!/^(items|meta|settings)\/[^/]+$/.test(p)||!d||typeof d!=="object")continue;await db.doc(p).set(d);if(p.startsWith("items/"))n++;}
   $("setmodal").hidden=true;toast(`백업에서 ${n}개를 불러왔어요`);
 }
+
+// ---- 구글 캘린더 등록 (Ram Calendar 규칙 그대로) ----
+const GRULES=[
+  {label:'🔴 제출',prefix:'🔴[제출] ',color:'2',allDay:true},
+  {label:'✔️ 할 일',prefix:'✔️',color:'8',time:['23:00','24:00']},
+  {label:'⭐️ 출장',prefix:'⭐️[출장] ',color:'3'},
+  {label:'⭐️ 출강',prefix:'⭐️[출강] ',color:'7'},
+  {label:'🖥 회의',prefix:'🖥[회의] ',color:'1'},
+  {label:'🖥 연수',prefix:'🖥[연수] ',color:''},
+  {label:'📽 촬영',prefix:'📽[촬영] ',color:''},
+  {label:'🗓 일정',prefix:'🗓[일정] ',color:'1'},
+  {label:'📍 약속',prefix:'📍[약속] ',color:'4'},
+  {label:'🏥 예약',prefix:'🏥[예약] ',color:'5'},
+  {label:'🏫 학교',prefix:'🏫',color:'10'},
+  {label:'🐻 쿼카',prefix:'🐻[쿼카] ',color:'6'},
+  {label:'🟡 발표',prefix:'🟡',color:'2',allDay:true},
+  {label:'⚫️ 갱신',prefix:'⚫️',color:'8'}
+];
+const gAdd=(d,n)=>{const [y,m,dd]=d.split("-").map(Number);const t=new Date(y,m-1,dd+n);return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");};
+const GTZ=Intl.DateTimeFormat().resolvedOptions().timeZone||"Asia/Seoul";
+let calItem=null;
+$("c-rule").innerHTML=GRULES.map((r,i)=>`<option value="${i}">${r.label}</option>`).join("");
+function guessRule(it){
+  const t=(it.title||"")+" "+(it.body||"");
+  if(/발표/.test(t)&&/결과|선정|합격/.test(t))return 12;
+  if(it.deadline)return 0;
+  if(it.topic==="강의·연수"||/연수|강좌|특강|웨비나/.test(t))return 5;
+  if(/회의|협의회/.test(t))return 4;
+  return 7;
+}
+function calBody(){
+  const r=GRULES[+$("c-rule").value];let title=$("c-title").value.trim()||"일정";const date=$("c-date").value,time=$("c-time").value;
+  if(r.label==="🔴 제출"&&time&&!/\(\d{1,2}:\d{2}\)$/.test(title))title+=` (${time})`;
+  const body={summary:r.prefix+title,description:$("c-desc").value.trim(),reminders:{useDefault:false,overrides:[]}};
+  if(r.color)body.colorId=r.color;
+  if(r.time&&!time){body.start={dateTime:date+"T"+r.time[0]+":00",timeZone:GTZ};body.end={dateTime:gAdd(date,1)+"T00:00:00",timeZone:GTZ};}
+  else if(r.allDay||!time){body.start={date};body.end={date:gAdd(date,1)};}
+  else{const [h,m]=time.split(":").map(Number);const eh=String(Math.min(h+1,23)).padStart(2,"0")+":"+String(m).padStart(2,"0");body.start={dateTime:date+"T"+time+":00",timeZone:GTZ};body.end={dateTime:date+"T"+eh+":00",timeZone:GTZ};}
+  return body;
+}
+function calPreview(){const d=$("c-date").value;if(!d){$("c-prev").innerHTML="날짜를 골라 주세요";return;}const b=calBody();$("c-prev").innerHTML=`<b>${esc(b.summary)}</b> · ${esc(md(d))} ${b.start.date?"종일":esc($("c-time").value||"23:00")} · 알림 없음`;}
+["c-rule","c-title","c-date","c-time"].forEach(id=>$(id).addEventListener("input",calPreview));
+async function calConn(){
+  const st=await RT.gcalStatus();const el=$("c-con");
+  if(st.connected){el.hidden=true;return st;}
+  el.hidden=false;el.innerHTML=`<span>${st.hasKey?"구글 캘린더가 아직 연결 안 됐어요":"이 버전엔 구글 연결 키가 없어요(설정 → 구글 캘린더)"}</span>${st.hasKey?'<button class="btn pri" type="button" id="c-login" style="height:30px">연결하기</button>':""}`;
+  const lb=$("c-login");if(lb)lb.onclick=async()=>{lb.disabled=true;lb.textContent="브라우저에서 로그인…";const r=await RT.gcalLogin();if(r.ok){toast("구글 캘린더를 연결했어요");calConn();}else{lb.disabled=false;lb.textContent="연결하기";toast("연결하지 못했어요");}};
+  return st;
+}
+async function openCal(it){
+  calItem=it;const ri=guessRule(it);$("c-rule").value=ri;
+  $("c-title").value=(it.title||"").replace(/\s+/g," ").slice(0,60);
+  $("c-date").value=it.deadline||"";$("c-time").value="";
+  $("c-desc").value=[it.body,it.link,it.src?"출처: "+it.src+"방":""].filter(Boolean).join("\n")+"\n(RamGroupTalk에서 등록)";
+  calPreview();$("calmodal").hidden=false;calConn();
+}
+$("c-cancel").onclick=()=>{$("calmodal").hidden=true;};
+$("c-ok").onclick=async()=>{
+  if(!$("c-date").value){toast("날짜를 골라 주세요");return;}
+  const st=await RT.gcalStatus();if(!st.connected){toast("먼저 구글 캘린더를 연결해 주세요");return;}
+  const b=$("c-ok");b.disabled=true;b.textContent="등록 중…";
+  const r=await RT.gcalAdd(calBody());b.disabled=false;b.textContent="등록";
+  if(!r.ok){toast("등록하지 못했어요: "+r.message.slice(0,60));return;}
+  $("calmodal").hidden=true;toast(r.value.duplicate?"이미 같은 일정이 있어서 새로 넣지 않았어요":"구글 캘린더에 넣었어요");
+};
+async function gSync(){const st=await RT.gcalStatus();$("g-state").textContent=st.connected?"✅ 연결됨":st.hasKey?"연결 안 됨":"연결 키 없음";$("g-login").hidden=st.connected||!st.hasKey;$("g-logout").hidden=!st.connected;}
+$("g-login").onclick=async()=>{$("g-login").disabled=true;const r=await RT.gcalLogin();$("g-login").disabled=false;toast(r.ok?"구글 캘린더를 연결했어요":"연결하지 못했어요");gSync();};
+$("g-logout").onclick=async()=>{await RT.gcalLogout();toast("연결을 끊었어요");gSync();};
 $("setbtn").onclick=openSettings;
 $("s-cancel").onclick=()=>{$("setmodal").hidden=true;RT.getConf().then(c=>{applyLook(c.theme,c.fontSize);applyAccent(c.accent);});};
 $("s-keylink").onclick=()=>RT.openUrl("https://aistudio.google.com/apikey");

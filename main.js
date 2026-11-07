@@ -1,5 +1,7 @@
 // RamGroupTalk — 카톡 단톡방 자동 저장·정리 위젯 (만든 사람: 김예람)
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, dialog, globalShortcut } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, dialog, globalShortcut, safeStorage } = require("electron");
+const http = require("http");
+const crypto = require("crypto");
 const path = require("path");
 const fs = require("fs");
 const { execFile } = require("child_process");
@@ -133,9 +135,10 @@ async function gemini(prompt) {
 // ---------- IPC ----------
 ipcMain.handle("data:load", () => readJson(DATA_FILE, {}));
 ipcMain.handle("data:save", (_e, docs) => { writeJson(DATA_FILE, docs); return true; });
-ipcMain.handle("conf:get", () => ({ ...conf, geminiKey: conf.geminiKey ? "••••" + conf.geminiKey.slice(-4) : "", hasKey: !!conf.geminiKey }));
+ipcMain.handle("conf:get", () => ({ ...conf, gRefresh: undefined, gClientSecret: undefined, geminiKey: conf.geminiKey ? "••••" + conf.geminiKey.slice(-4) : "", hasKey: !!conf.geminiKey }));
 ipcMain.handle("conf:set", (_e, patch) => {
   if (patch.geminiKey === undefined || String(patch.geminiKey).startsWith("••••")) delete patch.geminiKey;
+  delete patch.gRefresh;
   conf = { ...conf, ...patch };
   saveConf();
   if (win) win.setAlwaysOnTop(!!conf.alwaysOnTop);
@@ -173,6 +176,83 @@ ipcMain.handle("backup:export", async () => {
   fs.writeFileSync(r.filePath, JSON.stringify({ ramgrouptalk: "backup", version: 1, docs: readJson(DATA_FILE, {}) }, null, 1), "utf8");
   return { ok: true };
 });
+
+// ---------- 구글 캘린더 (Ram Calendar와 같은 방식: PKCE + 루프백 로그인, 알림 없이 등록) ----------
+const GAPI = "https://www.googleapis.com/calendar/v3";
+const GSCOPE = "https://www.googleapis.com/auth/calendar";
+let GBUILTIN = { clientId: "", clientSecret: "" };
+try { GBUILTIN = { ...GBUILTIN, ...JSON.parse(fs.readFileSync(path.join(__dirname, "creds.json"), "utf8").replace(/^﻿/, "")) }; } catch {}
+const gId = () => conf.gClientId || GBUILTIN.clientId;
+const gSecret = () => (conf.gClientId ? conf.gClientSecret : GBUILTIN.clientSecret);
+function encS(s) { if (!s) return ""; try { if (safeStorage.isEncryptionAvailable()) return "enc:" + safeStorage.encryptString(s).toString("base64"); } catch {} return "raw:" + Buffer.from(s).toString("base64"); }
+function decS(s) { if (!s) return ""; try { if (s.startsWith("enc:")) return safeStorage.decryptString(Buffer.from(s.slice(4), "base64")); if (s.startsWith("raw:")) return Buffer.from(s.slice(4), "base64").toString(); } catch {} return ""; }
+const b64url = b => b.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+let gAccess = null, gExp = 0;
+function gLogin() {
+  return new Promise((resolve, reject) => {
+    if (!gId() || !gSecret()) return reject(Object.assign(new Error("구글 연결 키가 없어요"), { code: "NO_CLIENT" }));
+    const verifier = b64url(crypto.randomBytes(32));
+    const challenge = b64url(crypto.createHash("sha256").update(verifier).digest());
+    const state = b64url(crypto.randomBytes(12));
+    let done = false;
+    const page = m => `<!doctype html><meta charset="utf-8"><title>RamGroupTalk</title><body style="font-family:'Malgun Gothic',sans-serif;padding:40px;font-size:18px">${m}</body>`;
+    const server = http.createServer(async (req, res) => {
+      const u = new URL(req.url, "http://127.0.0.1");
+      if (u.pathname !== "/") { res.writeHead(404); res.end(); return; }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      const code = u.searchParams.get("code");
+      if (u.searchParams.get("error") || !code || u.searchParams.get("state") !== state) { res.end(page("연결이 취소됐어요. RamGroupTalk에서 다시 시도해 주세요.")); return finish(new Error("LOGIN_FAILED")); }
+      try {
+        const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ code, client_id: gId(), client_secret: gSecret(), redirect_uri: `http://127.0.0.1:${server.address().port}`, grant_type: "authorization_code", code_verifier: verifier }) });
+        const j = await r.json();
+        if (!r.ok || !j.refresh_token) throw new Error(j.error_description || j.error || "NO_REFRESH_TOKEN");
+        conf.gRefresh = encS(j.refresh_token); saveConf();
+        gAccess = j.access_token; gExp = Date.now() + (j.expires_in - 60) * 1000;
+        res.end(page("✅ 구글 캘린더 연결 완료! 이 창을 닫고 RamGroupTalk으로 돌아가세요."));
+        finish(null);
+      } catch (e) { res.end(page("연결 중 문제가 생겼어요: " + String(e.message).replace(/</g, "&lt;"))); finish(e); }
+    });
+    const timer = setTimeout(() => finish(new Error("TIMEOUT")), 5 * 60 * 1000);
+    function finish(e) { if (done) return; done = true; clearTimeout(timer); setTimeout(() => server.close(), 500); if (win) { win.show(); win.focus(); } e ? reject(e) : resolve(true); }
+    server.listen(0, "127.0.0.1", () => {
+      shell.openExternal("https://accounts.google.com/o/oauth2/v2/auth?" + new URLSearchParams({ client_id: gId(), redirect_uri: `http://127.0.0.1:${server.address().port}`,
+        response_type: "code", scope: GSCOPE, access_type: "offline", prompt: "consent", code_challenge: challenge, code_challenge_method: "S256", state }));
+    });
+  });
+}
+async function gToken() {
+  if (gAccess && Date.now() < gExp) return gAccess;
+  const rt = decS(conf.gRefresh);
+  if (!rt) throw Object.assign(new Error("구글 캘린더가 연결돼 있지 않아요"), { code: "NOT_LOGGED_IN" });
+  const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: gId(), client_secret: gSecret(), refresh_token: rt, grant_type: "refresh_token" }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { if (j.error === "invalid_grant") { conf.gRefresh = ""; saveConf(); throw Object.assign(new Error("연결이 만료됐어요. 다시 연결해 주세요."), { code: "NOT_LOGGED_IN" }); } throw new Error(j.error_description || j.error || "토큰 갱신 실패"); }
+  gAccess = j.access_token; gExp = Date.now() + (j.expires_in - 60) * 1000; return gAccess;
+}
+async function gApi(method, p, query, body) {
+  const t = await gToken();
+  const r = await fetch(GAPI + p + (query ? "?" + new URLSearchParams(query) : ""), { method, headers: { Authorization: "Bearer " + t, ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  if (r.status === 204) return null;
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { if (r.status === 401) gAccess = null; throw new Error((j.error && j.error.message) || ("HTTP " + r.status)); }
+  return j;
+}
+const wrap = f => async (...a) => { try { return { ok: true, value: await f(...a) } } catch (e) { return { ok: false, code: e.code || "ERR", message: String(e.message || e) }; } };
+ipcMain.handle("gcal:status", () => ({ connected: !!conf.gRefresh, hasKey: !!(gId() && gSecret()), custom: !!conf.gClientId }));
+ipcMain.handle("gcal:login", wrap(() => gLogin()));
+ipcMain.handle("gcal:logout", () => { const rt = decS(conf.gRefresh); if (rt) fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(rt), { method: "POST" }).catch(() => {}); conf.gRefresh = ""; gAccess = null; saveConf(); return true; });
+// 같은 날 같은 제목 일정이 이미 있으면 새로 만들지 않음
+ipcMain.handle("gcal:add", wrap(async (_e, body) => {
+  const day = (body.start.date || body.start.dateTime.slice(0, 10));
+  const tMin = new Date(day + "T00:00:00+09:00"), tMax = new Date(tMin.getTime() + 86400000);
+  const found = await gApi("GET", "/calendars/primary/events", { q: body.summary.replace(/^\S+?\]\s*/, "").slice(0, 40), timeMin: tMin.toISOString(), timeMax: tMax.toISOString(), singleEvents: "true", maxResults: "20" });
+  const dup = (found.items || []).find(e => (e.summary || "") === body.summary);
+  if (dup) return { duplicate: true, link: dup.htmlLink };
+  const ev = await gApi("POST", "/calendars/primary/events", null, body);
+  return { duplicate: false, link: ev.htmlLink };
+}));
 ipcMain.handle("open:url", (_e, u) => { if (/^https?:/.test(u)) shell.openExternal(u); });
 ipcMain.handle("open:folder", () => { fs.mkdirSync(conf.exportDir, { recursive: true }); shell.openPath(conf.exportDir); });
 ipcMain.on("win:min", () => win.minimize());
