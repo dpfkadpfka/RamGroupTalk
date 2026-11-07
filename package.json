@@ -1,0 +1,30 @@
+{
+  "name": "ramgrouptalk",
+  "productName": "RamGroupTalk",
+  "version": "0.1.0",
+  "description": "카톡 단톡방 대화를 자동으로 저장하고 필요한 내용만 주제별로 정리해 주는 바탕화면 위젯",
+  "author": "김예람",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never",
+    "release": "electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.yeram.ramgrouptalk",
+    "productName": "RamGroupTalk",
+    "files": ["main.js", "preload.js", "renderer/**", "scripts/**", "package.json"],
+    "extraResources": [{ "from": "scripts", "to": "scripts" }],
+    "win": { "target": "nsis", "artifactName": "RamGroupTalk-Setup-${version}.exe" },
+    "nsis": { "oneClick": true, "perMachine": false, "shortcutName": "RamGroupTalk" },
+    "publish": [{ "provider": "github", "owner": "dpfkadpfka", "repo": "RamGroupTalk" }]
+  }
+}
