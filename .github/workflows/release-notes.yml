@@ -1,0 +1,31 @@
+name: release-notes
+# CHANGELOG.md가 바뀌면 모든 릴리스 설명을 그 내용으로 다시 채워요.
+on:
+  push:
+    branches: [main]
+    paths: ["CHANGELOG.md", ".github/workflows/release-notes.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 릴리스마다 바뀐 점 넣기
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import re, json, subprocess
+          t = open('CHANGELOG.md', encoding='utf8').read()
+          secs = dict(re.findall(r'(?ms)^## (\d+\.\d+\.\d+)\s*\n(.*?)(?=^## |\Z)', t))
+          rel = json.loads(subprocess.check_output(['gh', 'api', 'repos/${{ github.repository }}/releases', '--paginate']))
+          for r in rel:
+              v = r['tag_name'].lstrip('v')
+              if v not in secs: continue
+              body = re.sub(r'(?m)^### ', '## ', secs[v].strip())
+              body += f"\n\n---\n**설치**: 아래 Assets에서 `RamGroupTalk-Setup-{v}.exe`를 받아 실행해요. 이미 쓰고 있다면 자동으로 업데이트돼요.\n\n[사용 방법](https://github.com/${{ github.repository }}#readme) · [전체 바뀐 점](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)"
+              subprocess.run(['gh', 'api', '-X', 'PATCH', f"repos/${{ github.repository }}/releases/{r['id']}", '-f', f'name=RamGroupTalk {v}', '-f', f'body={body}'], check=True, stdout=subprocess.DEVNULL)
+              print('ok', v)
+          PY

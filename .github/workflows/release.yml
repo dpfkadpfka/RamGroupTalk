@@ -2,7 +2,7 @@ name: release
 on:
   push:
     branches: [main]
-    paths-ignore: ["README.md", "CHANGELOG.md", "docs/**"]
+    paths-ignore: ["README.md", "CHANGELOG.md", "docs/**", ".github/workflows/release-notes.yml"]
   workflow_dispatch:
 permissions:
   contents: write
