@@ -21,10 +21,35 @@
   "build": {
     "appId": "com.yeram.ramgrouptalk",
     "productName": "RamGroupTalk",
-    "files": ["main.js", "preload.js", "renderer/**", "scripts/**", "package.json"],
-    "extraResources": [{ "from": "scripts", "to": "scripts" }],
-    "win": { "target": "nsis", "artifactName": "RamGroupTalk-Setup-${version}.exe" },
-    "nsis": { "oneClick": true, "perMachine": false, "shortcutName": "RamGroupTalk" },
-    "publish": [{ "provider": "github", "owner": "dpfkadpfka", "repo": "RamGroupTalk" }]
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**",
+      "scripts/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "scripts",
+        "to": "scripts"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "RamGroupTalk-Setup-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "shortcutName": "RamGroupTalk"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "dpfkadpfka",
+        "repo": "RamGroupTalk",
+        "releaseType": "release"
+      }
+    ]
   }
 }
