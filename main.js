@@ -7,6 +7,8 @@ let autoUpdater = null;
 try { autoUpdater = require("electron-updater").autoUpdater; } catch {}
 
 if (!app.requestSingleInstanceLock()) { app.quit(); }
+app.setName("RamGroupTalk");
+if (process.platform === "win32") app.setAppUserModelId("com.yeram.ramgrouptalk");
 
 const DATA_DIR = app.getPath("userData");
 const DATA_FILE = path.join(DATA_DIR, "data.json");
