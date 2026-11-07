@@ -134,6 +134,7 @@ ipcMain.handle("conf:set", (_e, patch) => {
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: !!conf.openAtLogin });
   return true;
 });
+ipcMain.handle("app:ver", () => app.getVersion());
 ipcMain.handle("export:run", () => runExport());
 ipcMain.handle("export:cancel", () => cancelExport());
 ipcMain.handle("file:read", (_e, p) => fs.readFileSync(p, "utf8"));
