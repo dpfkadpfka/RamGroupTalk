@@ -55,7 +55,8 @@ public class W32 {
 $AE = [System.Windows.Automation.AutomationElement]
 $TS = [System.Windows.Automation.TreeScope]
 $result = @{ saved = @(); errors = @() }
-function Save { $result | ConvertTo-Json -Depth 4 | Out-File $ResultFile -Encoding utf8 }
+$script:dbg = @()
+function Save { $result.debug = $script:dbg; $result | ConvertTo-Json -Depth 4 | Out-File $ResultFile -Encoding utf8 }
 function Done { Save; exit }
 function Stopped { return ($StopFile -and (Test-Path $StopFile)) }
 
@@ -71,7 +72,8 @@ function FindRoom($name) {
   $hit
 }
 function Focus($h) { [W32]::Fg($h); Start-Sleep -Milliseconds 200 }
-function Paste($text) { [System.Windows.Forms.Clipboard]::SetText($text); [System.Windows.Forms.SendKeys]::SendWait("^a"); Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait("^v") }
+# 주의: 카톡 메인 창에서 Ctrl+A는 '친구 추가'라서 쓰지 않음 (End → Shift+Home 으로 지우기)
+function Paste($text) { [System.Windows.Forms.Clipboard]::SetText($text); [System.Windows.Forms.SendKeys]::SendWait("{END}+{HOME}{BACKSPACE}"); Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait("^v") }
 
 # 방이 안 열려 있으면: 카톡 메인 창 → 왼쪽 채팅 아이콘 → 검색칸에 이름 → 없으면 오픈채팅/채팅 머리글로 바꿔 다시 검색
 # 좌표는 100% 배율 기준. 이 스크립트를 DPI 인식으로 돌려 창 위치(실제 픽셀) × 배율로 계산함
@@ -84,27 +86,44 @@ function MainClick($rx, $ry, [switch]$Double) {
   $r = New-Object W32+RECT; [W32]::GetWindowRect($h, [ref]$r) | Out-Null
   $s = [W32]::GetDpiForWindow($h) / 96.0; if ($s -le 0) { $s = 1 }
   $x = [int]($r.L + $rx * $s); $y = [int]($r.T + $ry * $s)
+  $script:dbg += ("{0},{1} -> {2},{3} (창 {4},{5},{6},{7} 배율 {8})" -f $rx, $ry, $x, $y, $r.L, $r.T, $r.R, $r.B, $s)
   if ($x -ge $r.R -or $y -ge $r.B) { return $false }
   if ($Double) { [W32]::DClick($x, $y) } else { [W32]::Click($x, $y) }
   Start-Sleep -Milliseconds 350; return $true
 }
 function WaitRoom($name) { for ($i = 0; $i -lt 8; $i++) { Start-Sleep -Milliseconds 250; $w = FindRoom $name; if ($w) { return $w } }; return $null }
+function MainFocus { $m = MainWin; if (-not $m) { return $false }; $h = [IntPtr][long]$m[0]; Focus $h; return ([W32]::GetForegroundWindow() -eq $h) }
+# 검색칸은 돋보기를 눌러야 나옴 → 돋보기 단축키 Ctrl+F 로 열고 바로 입력
 function SearchHere($name) {
-  if (-not (MainClick 200 103)) { return $null }          # 검색칸 (채팅방, 참여자 검색)
-  Paste $name; Start-Sleep -Milliseconds 900
+  if (-not (MainFocus)) { return $null }
+  [W32]::CtrlKey(0x46); Start-Sleep -Milliseconds 500
+  Paste $name; Start-Sleep -Milliseconds 1000
   [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
   $w = WaitRoom $name; if ($w) { return $w }
-  MainClick 230 205 -Double | Out-Null                    # 검색 결과 첫 줄
+  if (MainFocus) { [System.Windows.Forms.SendKeys]::SendWait("{DOWN}"); Start-Sleep -Milliseconds 150; [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") }
   return (WaitRoom $name)
 }
-function ClearSearch { if (MainClick 200 103) { [System.Windows.Forms.SendKeys]::SendWait("^a{BACKSPACE}") } }
+function ClearSearch { if (MainFocus) { [System.Windows.Forms.SendKeys]::SendWait("{ESC}"); Start-Sleep -Milliseconds 200 } }
+# 방 찾다가 엉뚱한 창(친구 추가 등)이 뜨면 바로 닫고 멈춤
+function StrayCheck($known, $name) {
+  $new = @(KWins | Where-Object { $known -notcontains $_[0] -and $_[2] -ne "카카오톡" -and -not ($_[2] -and $_[2].Contains($name)) })
+  foreach ($w in $new) { [W32]::PostMessage([IntPtr][long]$w[0], 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null }
+  return ($new.Count -gt 0)
+}
 function TryOpen($name) {
+  $known = @(KWins | ForEach-Object { $_[0] })
   if (-not (MainClick 38 118)) { return $null }          # 왼쪽 말풍선(채팅) 아이콘
+  if (StrayCheck $known $name) { return $null }
   $w = SearchHere $name; if ($w) { return $w }           # 지금 보이는 목록(채팅 또는 오픈채팅)에서
-  ClearSearch; MainClick 195 57 | Out-Null               # 오픈채팅 머리글
+  if (StrayCheck $known $name) { return $null }
+  ClearSearch; MainClick 200 60 | Out-Null               # 오픈채팅 머리글
+  if (StrayCheck $known $name) { return $null }
   $w = SearchHere $name; if ($w) { return $w }
-  ClearSearch; MainClick 115 57 | Out-Null               # 채팅 머리글
+  if (StrayCheck $known $name) { return $null }
+  ClearSearch; MainClick 112 60 | Out-Null               # 채팅 머리글
+  if (StrayCheck $known $name) { return $null }
   $w = SearchHere $name; if ($w) { return $w }
+  StrayCheck $known $name | Out-Null
   return $null
 }
 
