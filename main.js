@@ -26,7 +26,7 @@ const DEFAULT_CONF = {
   lastAuto: ""
 };
 
-function readJson(f, d) { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return d; } }
+function readJson(f, d) { try { return JSON.parse(fs.readFileSync(f, "utf8").replace(/^\uFEFF/, "")); } catch { return d; } }  // PowerShell이 붙이는 BOM 제거
 function writeJson(f, v) { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f + ".tmp", JSON.stringify(v)); fs.renameSync(f + ".tmp", f); }
 let conf = { ...DEFAULT_CONF, ...readJson(CONF_FILE, {}) };
 const saveConf = () => writeJson(CONF_FILE, conf);
@@ -90,6 +90,7 @@ function runExport() {
     fs.mkdirSync(conf.exportDir, { recursive: true });
     const roomsFile = path.join(DATA_DIR, "rooms.json");
     fs.writeFileSync(roomsFile, JSON.stringify(conf.rooms), "utf8");
+    const startedAt = Date.now();
     const resultFile = path.join(DATA_DIR, "export-result.json");
     try { fs.unlinkSync(resultFile); } catch {}
     try { fs.unlinkSync(STOP_FILE); } catch {}
@@ -100,7 +101,11 @@ function runExport() {
         exportProc = null; clearTimeout(killT); try { globalShortcut.unregister("CommandOrControl+Shift+Q"); } catch {}
         const res = readJson(resultFile, null);
         if (res) { try { fs.writeFileSync(path.join(conf.exportDir, "가져오기-기록.txt"), [new Date().toLocaleString("ko-KR"), ...(res.errors || []).map(e => "오류: " + e.room + " - " + e.msg), ...(res.debug || [])].join("\r\n"), "utf8"); } catch {} return resolve({ ok: true, ...res }); }
-        resolve({ ok: false, error: err ? String(err.message || err).slice(0, 300) : "결과를 읽지 못했어요" });
+        // 결과 파일이 없어도 이번에 저장된 txt가 있으면 그걸로 진행
+        let files = [];
+        try { files = fs.readdirSync(conf.exportDir).filter(n => /\.txt$/i.test(n)).map(n => path.join(conf.exportDir, n)).filter(p => fs.statSync(p).mtimeMs >= startedAt - 5000); } catch {}
+        if (files.length) return resolve({ ok: true, saved: files.map(p => ({ room: path.basename(p).replace(/^KakaoTalk_|_\d{8}_\d{6}\.txt$/g, ""), path: p })), errors: [] });
+        resolve({ ok: false, error: err ? String(err.message || err).split("\n").pop().slice(0, 200) || "가져오기가 중간에 멈췄어요" : "결과를 읽지 못했어요" });
       });
   });
 }
