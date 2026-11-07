@@ -59,6 +59,9 @@ function createTray() {
     { label: "지금 카톡 가져오기", click: () => { win.show(); win.webContents.send("run-export"); } },
     { label: "가져오기 중단", click: () => cancelExport() },
     { type: "separator" },
+    { label: "업데이트 확인", click: () => checkUpdate(true) },
+    { label: "버전 " + app.getVersion(), enabled: false },
+    { type: "separator" },
     { label: "끝내기", click: () => { quitting = true; app.quit(); } }
   ]));
   tray.on("click", () => { win.isVisible() ? win.focus() : win.show(); });
@@ -175,12 +178,45 @@ setInterval(() => {
   }
 }, 60 * 1000);
 
-app.on("second-instance", () => { if (win) { win.show(); win.focus(); } });
+// ---------- 업데이트 ----------
+let updBusy = false, updManual = false;
+function msg(text, detail, buttons) {
+  return dialog.showMessageBox(win && win.isVisible() ? win : null, { type: "info", title: "RamGroupTalk", message: text, detail: detail || "", buttons: buttons || ["확인"], defaultId: 0, cancelId: (buttons || ["확인"]).length - 1 });
+}
+function setupUpdater() {
+  if (!autoUpdater) return;
+  autoUpdater.autoDownload = true; autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on("update-available", i => { if (updManual) msg(`새 버전 ${i.version}을(를) 받고 있어요`, "다 받으면 다시 알려 드릴게요."); });
+  autoUpdater.on("update-not-available", () => { if (updManual) msg("지금 최신 버전이에요", "버전 " + app.getVersion()); updBusy = false; updManual = false; });
+  autoUpdater.on("update-downloaded", async i => {
+    updBusy = false; updManual = false;
+    const r = await msg(`새 버전 ${i.version} 준비 완료`, "지금 다시 시작해서 업데이트할까요?", ["지금 업데이트", "나중에(끌 때 자동 설치)"]);
+    if (r.response === 0) { quitting = true; autoUpdater.quitAndInstall(false, true); }
+  });
+  autoUpdater.on("error", e => { if (updManual) msg("업데이트를 확인하지 못했어요", String(e && e.message || e).slice(0, 200)); updBusy = false; updManual = false; });
+}
+function checkUpdate(manual) {
+  if (!app.isPackaged || !autoUpdater) { if (manual) msg("설치한 앱에서만 업데이트를 확인할 수 있어요"); return; }
+  if (updBusy) { if (manual) msg("업데이트를 확인하는 중이에요"); return; }
+  updBusy = true; updManual = !!manual;
+  autoUpdater.checkForUpdates().catch(() => { updBusy = false; });
+}
+function handleArgs(argv) {
+  if (argv.includes("--check-update")) checkUpdate(true);
+  else if (argv.includes("--run-export")) { if (win) { win.show(); win.webContents.send("run-export"); } }
+}
+
+app.on("second-instance", (_e, argv) => { if (win) { win.show(); win.focus(); } handleArgs(argv || []); });
 app.whenReady().then(() => {
   createWindow(); createTray();
   if (app.isPackaged) {
     app.setLoginItemSettings({ openAtLogin: !!conf.openAtLogin });
-    if (autoUpdater) { autoUpdater.autoInstallOnAppQuit = true; autoUpdater.checkForUpdatesAndNotify().catch(() => {}); }
+    setupUpdater(); checkUpdate(false);
+    setInterval(() => checkUpdate(false), 6 * 60 * 60 * 1000);
+    if (process.platform === "win32") app.setUserTasks([
+      { program: process.execPath, arguments: "--run-export", iconPath: process.execPath, iconIndex: 0, title: "지금 카톡 가져오기", description: "설정한 단톡방을 저장하고 정리해요" },
+      { program: process.execPath, arguments: "--check-update", iconPath: process.execPath, iconIndex: 0, title: "업데이트 확인", description: "새 버전이 있는지 확인해요" }
+    ]);
   }
 });
 app.on("before-quit", () => { quitting = true; });
