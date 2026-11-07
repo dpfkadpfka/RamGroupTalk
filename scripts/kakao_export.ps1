@@ -84,6 +84,11 @@ function FindRoom($name) {
   if (-not $hit) { $hit = $ws | Where-Object { $_[2].Contains($name) } | Select-Object -First 1 }
   if ($hit) { return ,$hit }
 }
+# 저장된 파일 찾기: 정한 이름이 있으면 그것, 없으면 저장 폴더에서 이번에 새로 생긴 txt
+function FindOut($p, $since) {
+  if (Test-Path -LiteralPath $p) { return (Get-Item -LiteralPath $p) }
+  Get-ChildItem -LiteralPath $OutDir -Filter *.txt -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $since.AddSeconds(-5) } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+}
 function Focus($h) { [W32]::Fg($h); Start-Sleep -Milliseconds 200 }
 # 주의: 카톡 메인 창에서 Ctrl+A는 '친구 추가'라서 쓰지 않음 (End → Shift+Home 으로 지우기)
 function Paste($text) { [System.Windows.Forms.Clipboard]::SetText($text); [System.Windows.Forms.SendKeys]::SendWait("{END}+{HOME}{BACKSPACE}"); Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait("^v") }
@@ -213,21 +218,23 @@ foreach ($room in $rooms) {
       Start-Sleep -Milliseconds 250
       if (Stopped) { break }
       $pop = @(KWins | Where-Object { $before -notcontains $_[0] -and $_[3] -eq "EVA_Window_Dblclk" })
-      $size = if (Test-Path $path) { (Get-Item $path).Length } else { -1 }
+      $f = FindOut $path $t0
+      $size = if ($f) { $f.Length } else { -1 }
       if ($size -gt 0 -and $size -eq $last) { $same++ } else { $same = 0 }
       $last = $size
-      if ($pop.Count -and $size -gt 0) { $popped = $true; break }
+      if ($pop.Count -and $size -gt 0 -and $same -ge 2) { $popped = $true; break }
       if ($same -ge 8) { break }
     }
     Start-Sleep -Milliseconds 150
     # 완료 창 [확인]
     $pop = @(KWins | Where-Object { $before -notcontains $_[0] -and $_[3] -eq "EVA_Window_Dblclk" })
     if ($pop.Count) { foreach ($w in $pop) { Focus ([IntPtr][long]$w[0]); [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") } }
-    elseif (Test-Path $path) { Focus $h; [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") }
+    elseif (FindOut $path $t0) { Focus $h; [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") }
     Start-Sleep -Milliseconds 400
     # 남은 저장·덮어쓰기 창은 취소
     foreach ($w in @(KWins | Where-Object { $_[3] -eq "#32770" })) { Focus ([IntPtr][long]$w[0]); [System.Windows.Forms.SendKeys]::SendWait("{ESC}"); Start-Sleep -Milliseconds 300 }
-    if (Test-Path $path) { $result.saved += @{ room = $name; path = $path } }
+    $f = FindOut $path $t0
+    if ($f) { $result.saved += @{ room = $name; path = $f.FullName } }
     else { $result.errors += @{ room = $name; msg = "저장이 끝나지 않았어요(대화가 아주 많으면 다시 시도)" } }
     [W32]::PostMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null   # 카톡방 닫기
     Start-Sleep -Milliseconds 400
