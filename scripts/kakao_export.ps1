@@ -95,8 +95,8 @@ function Paste($text) { [System.Windows.Forms.Clipboard]::SetText($text); [Syste
 
 # 방이 안 열려 있으면 (카톡 PC에서 직접 확인한 순서)
 #  1) 메인 창(숨어 있으면 꺼내기) → 왼쪽 채팅 아이콘
-#  2) Ctrl+F(검색칸 열고 커서) → 방 이름 붙여넣기 → Enter(안 열리면 첫 결과 더블클릭) = 지금 보이는 목록에서 찾기
-#  3) 못 찾으면 검색칸의 [통합검색] → [채팅] 탭(일반+오픈채팅 모두 나옴) → 첫 결과 더블클릭
+#  2) Ctrl+F(검색칸 열고 커서) → 방 이름 붙여넣기
+#  3) 검색칸의 [통합검색] → [채팅] 탭(일반+오픈채팅 모두 나옴) → 첫 결과 더블클릭
 # 좌표는 100% 배율 기준, DPI 인식 상태에서 창 위치(실제 픽셀) × 배율로 계산
 [W32]::SetProcessDPIAware() | Out-Null
 function MainWin {
@@ -144,14 +144,7 @@ function TryOpen($name) {
   ClickIn $h 38 118 | Out-Null                          # 왼쪽 말풍선(채팅) 아이콘
   if (-not (MainFocus)) { return $null }
   [System.Windows.Forms.SendKeys]::SendWait("^f"); Start-Sleep -Milliseconds 700   # Ctrl+F: 검색칸 열고 커서
-  Paste $name; Start-Sleep -Milliseconds 1300            # 검색 결과가 뜰 때까지
-  [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-  $w = WaitRoom $name 16; if ($w) { return ,$w }
-  CloseStray $known $name ""
-  # Enter로 안 열리면 검색 결과 첫 방을 더블클릭
-  $h = MainFocus
-  if ($h) { ClickIn $h 200 172 -Double | Out-Null; $w = WaitRoom $name 20; if ($w) { return ,$w }; CloseStray $known $name "" }
-  CloseStray $known $name ""
+  Paste $name; Start-Sleep -Milliseconds 500
   # 통합검색 (검색칸 오른쪽 끝 버튼)
   $h = MainFocus; if (-not $h) { return $null }
   $before = @(KWins | ForEach-Object { $_[0] })
