@@ -1,7 +1,7 @@
 ﻿param([string]$RoomsFile, [string]$OutDir, [string]$ResultFile, [string]$StopFile = "")
 # RamTalk: 카톡 PC 단톡방 대화를 자동으로 내보내기(Ctrl+S) 하는 스크립트
 $ErrorActionPreference = "Stop"
-Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms, System.Drawing
 Add-Type @"
 using System; using System.Runtime.InteropServices; using System.Text; using System.Collections.Generic;
 public class W32 {
@@ -88,6 +88,22 @@ function FindRoom($name) {
 function FindOut($p, $since) {
   if (Test-Path -LiteralPath $p) { return (Get-Item -LiteralPath $p) }
   Get-ChildItem -LiteralPath $OutDir -Filter *.txt -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $since.AddSeconds(-5) } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+}
+# 완료 창의 [확인] 버튼이 노란색으로 바뀌었는지 화면 색으로 확인 → 노란 버튼 가운데 좌표를 돌려줌
+function YellowOk($wh) {
+  $r = New-Object W32+RECT; [W32]::GetWindowRect([IntPtr][long]$wh, [ref]$r) | Out-Null
+  $w = $r.R - $r.L; $hh = $r.B - $r.T; if ($w -lt 40 -or $hh -lt 40) { return $null }
+  $y0 = [int]($hh * 0.62); $bh = $hh - $y0
+  try {
+    $bmp = New-Object System.Drawing.Bitmap $w, $bh
+    $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($r.L, $r.T + $y0, 0, 0, $bmp.Size); $g.Dispose()
+    $n = 0; $sx = 0; $sy = 0
+    for ($y = 0; $y -lt $bh; $y += 2) { for ($x = [int]($w * 0.45); $x -lt $w; $x += 2) {
+      $c = $bmp.GetPixel($x, $y); if ($c.R -gt 225 -and $c.G -gt 190 -and $c.B -lt 90) { $n++; $sx += $x; $sy += $y } } }
+    $bmp.Dispose()
+    if ($n -ge 30) { return @([int]($r.L + $sx / $n), [int]($r.T + $y0 + $sy / $n)) }
+  } catch {}
+  return $null
 }
 function Focus($h) { [W32]::Fg($h); Start-Sleep -Milliseconds 200 }
 # 주의: 카톡 메인 창에서 Ctrl+A는 '친구 추가'라서 쓰지 않음 (End → Shift+Home 으로 지우기)
@@ -215,14 +231,20 @@ foreach ($room in $rooms) {
       $size = if ($f) { $f.Length } else { -1 }
       if ($size -gt 0 -and $size -eq $last) { $same++ } else { $same = 0 }
       $last = $size
-      if ($pop.Count -and $size -gt 0 -and $same -ge 2) { $popped = $true; break }
+      $ok = $null; foreach ($pw in $pop) { $ok = YellowOk $pw[0]; if ($ok) { break } }
+      if ($ok) {   # 노란 [확인] = 내보내기 끝 → 바로 누름
+        Start-Sleep -Milliseconds 200; [W32]::Click($ok[0], $ok[1]); $popped = $true; $script:dbg += "노란 확인 클릭"
+        for ($k = 0; $k -lt 20 -and -not (FindOut $path $t0); $k++) { Start-Sleep -Milliseconds 150 }
+        break
+      }
+      if ($pop.Count -and $size -gt 0 -and $same -ge 4) { $popped = $true; break }
       if ($same -ge 8) { break }
     }
     Start-Sleep -Milliseconds 150
-    # 완료 창 [확인]
+    # 완료 창 [확인] (아직 남아 있으면)
     $pop = @(KWins | Where-Object { $before -notcontains $_[0] -and $_[3] -eq "EVA_Window_Dblclk" })
     if ($pop.Count) { foreach ($w in $pop) { Focus ([IntPtr][long]$w[0]); [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") } }
-    elseif (FindOut $path $t0) { Focus $h; [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") }
+    elseif (-not $popped -and (FindOut $path $t0)) { Focus $h; [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") }
     Start-Sleep -Milliseconds 400
     # 남은 저장·덮어쓰기 창은 취소
     foreach ($w in @(KWins | Where-Object { $_[3] -eq "#32770" })) { Focus ([IntPtr][long]$w[0]); [System.Windows.Forms.SendKeys]::SendWait("{ESC}"); Start-Sleep -Milliseconds 300 }
