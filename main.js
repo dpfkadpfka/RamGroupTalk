@@ -1,5 +1,5 @@
 // RamGroupTalk — 카톡 단톡방 자동 저장·정리 위젯 (만든 사람: 김예람)
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, dialog, globalShortcut, safeStorage } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, dialog, globalShortcut, safeStorage, Notification, powerMonitor } = require("electron");
 const http = require("http");
 const crypto = require("crypto");
 const path = require("path");
@@ -95,12 +95,10 @@ function createWindow() {
   win.webContents.on("will-navigate", (e, url) => { if (!url.startsWith("file:")) { e.preventDefault(); shell.openExternal(url); } });
 }
 
-function createTray() {
-  const icon = nativeImage.createFromPath(iconFile());
-  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon.resize({ width: 16, height: 16 }));
-  if (icon.isEmpty()) app.getFileIcon(process.execPath, { size: "small" }).then(i => tray.setImage(i)).catch(() => {});
-  tray.setToolTip("RamGroupTalk");
+function trayMenu() {
+  if (!tray) return;
   tray.setContextMenu(Menu.buildFromTemplate([
+    ...(updReady ? [{ label: `새 버전 ${updReady} — 지금 업데이트`, click: () => installUpdate() }, { type: "separator" }] : []),
     { label: "열기", click: () => { win.show(); win.focus(); } },
     { label: "지금 카톡 가져오기", click: () => { win.show(); win.webContents.send("run-export"); } },
     { label: "가져오기 중단", click: () => cancelExport() },
@@ -110,7 +108,16 @@ function createTray() {
     { label: "버전 " + app.getVersion(), enabled: false },
     { type: "separator" },
     { label: "끝내기", click: () => { quitting = true; app.quit(); } }
-  ]));
+    ]));
+  tray.setToolTip(updReady ? `RamGroupTalk — 새 버전 ${updReady} 준비됨` : "RamGroupTalk");
+}
+function createTray() {
+  const icon = nativeImage.createFromPath(iconFile());
+  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon.resize({ width: 16, height: 16 }));
+  if (icon.isEmpty()) app.getFileIcon(process.execPath, { size: "small" }).then(i => tray.setImage(i)).catch(() => {});
+  tray.setToolTip("RamGroupTalk");
+  trayMenu();
+
   tray.on("click", () => { win.isVisible() ? win.focus() : win.show(); });
 }
 
@@ -373,24 +380,56 @@ let updBusy = false, updManual = false;
 function msg(text, detail, buttons) {
   return dialog.showMessageBox(win && win.isVisible() ? win : null, { type: "info", title: "RamGroupTalk", message: text, detail: detail || "", buttons: buttons || ["확인"], defaultId: 0, cancelId: (buttons || ["확인"]).length - 1 });
 }
+let updReady = "", lastCheck = 0;
+const RELEASES = "https://github.com/dpfkadpfka/RamGroupTalk/releases";
+function notify(title, body, onClick) {
+  try {
+    if (!Notification.isSupported()) return false;
+    const n = new Notification({ title, body, icon: iconFile(), silent: false });
+    if (onClick) n.on("click", onClick);
+    n.show(); return true;
+  } catch { return false; }
+}
+function installUpdate() { if (!updReady || !autoUpdater) return; quitting = true; autoUpdater.quitAndInstall(false, true); }
 function setupUpdater() {
   if (!autoUpdater) return;
   autoUpdater.autoDownload = true; autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on("update-available", i => { if (updManual) msg(`새 버전 ${i.version}을(를) 받고 있어요`, "다 받으면 다시 알려 드릴게요."); });
+  autoUpdater.on("update-available", i => { if (updManual) msg(`새 버전 ${i.version}을(를) 받고 있어요`, "다 받으면 다시 알려 드릴게요."); if (win) win.webContents.send("upd:state", { state: "downloading", version: i.version }); });
   autoUpdater.on("update-not-available", () => { if (updManual) msg("지금 최신 버전이에요", "버전 " + app.getVersion()); updBusy = false; updManual = false; });
   autoUpdater.on("update-downloaded", async i => {
-    updBusy = false; updManual = false;
-    const r = await msg(`새 버전 ${i.version} 준비 완료`, "지금 다시 시작해서 업데이트할까요?", ["지금 업데이트", "나중에(끌 때 자동 설치)"]);
-    if (r.response === 0) { quitting = true; autoUpdater.quitAndInstall(false, true); }
+    const manual = updManual; updBusy = false; updManual = false;
+    const first = updReady !== i.version; updReady = i.version; trayMenu();
+    if (win) win.webContents.send("upd:state", { state: "ready", version: i.version });
+    if (manual) {
+      const r = await msg(`새 버전 ${i.version} 준비 완료`, "지금 다시 시작해서 업데이트할까요?", ["지금 업데이트", "나중에(끌 때 자동 설치)"]);
+      if (r.response === 0) installUpdate();
+    } else if (first) {
+      notify(`RamGroupTalk ${i.version} 업데이트가 준비됐어요`, "알림을 누르면 바로 업데이트해요. 그냥 두면 앱을 끌 때 설치돼요.", () => installUpdate());
+    }
   });
   autoUpdater.on("error", e => { if (updManual) msg("업데이트를 확인하지 못했어요", String(e && e.message || e).slice(0, 200)); updBusy = false; updManual = false; });
+  // 자주 확인: 30분마다, 절전에서 깨어날 때, 창을 다시 볼 때(30분 지났으면)
+  setInterval(() => checkUpdate(false), 30 * 60 * 1000);
+  try { powerMonitor.on("resume", () => setTimeout(() => checkUpdate(false), 15000)); } catch {}
+  // 업데이트 뒤 처음 켤 때 바뀐 점 알림
+  const v = app.getVersion();
+  if (conf.lastVer && conf.lastVer !== v) {
+    setTimeout(() => notify(`RamGroupTalk ${v}로 업데이트됐어요`, "알림을 누르면 바뀐 점을 볼 수 있어요.", () => shell.openExternal(`${RELEASES}/tag/v${v}`)), 4000);
+    setTimeout(() => { if (win) win.webContents.send("upd:state", { state: "updated", version: v }); }, 2500);
+  }
+  if (conf.lastVer !== v) { conf.lastVer = v; saveConf(); }
 }
 function checkUpdate(manual) {
   if (!app.isPackaged || !autoUpdater) { if (manual) msg("설치한 앱에서만 업데이트를 확인할 수 있어요"); return; }
+  if (!manual && updReady) return;
   if (updBusy) { if (manual) msg("업데이트를 확인하는 중이에요"); return; }
-  updBusy = true; updManual = !!manual;
+  updBusy = true; updManual = !!manual; lastCheck = Date.now();
   autoUpdater.checkForUpdates().catch(() => { updBusy = false; });
 }
+ipcMain.handle("upd:get", () => ({ ready: updReady }));
+ipcMain.handle("upd:install", () => installUpdate());
+ipcMain.handle("upd:notes", (_e, v) => shell.openExternal(`${RELEASES}/tag/v${v || app.getVersion()}`));
+app.on("browser-window-focus", () => { if (Date.now() - lastCheck > 30 * 60 * 1000) checkUpdate(false); });
 function handleArgs(argv) {
   if (argv.includes("--check-update")) checkUpdate(true);
   else if (argv.includes("--open-folder")) { fs.mkdirSync(conf.exportDir, { recursive: true }); shell.openPath(conf.exportDir); }
@@ -409,7 +448,6 @@ app.whenReady().then(() => {
     }
     setupUpdater(); checkUpdate(false);
     scheduleSync(3000);
-    setInterval(() => checkUpdate(false), 6 * 60 * 60 * 1000);
     applyAppIcon(false);
   }
 });

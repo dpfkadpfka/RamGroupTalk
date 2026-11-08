@@ -24,6 +24,10 @@ contextBridge.exposeInMainWorld("ramtalk", {
   min: () => ipcRenderer.send("win:min"),
   max: () => ipcRenderer.send("win:max"),
   hide: () => ipcRenderer.send("win:hide"),
+  updGet: () => ipcRenderer.invoke("upd:get"),
+  updInstall: () => ipcRenderer.invoke("upd:install"),
+  updNotes: v => ipcRenderer.invoke("upd:notes", v),
+  onUpd: f => ipcRenderer.on("upd:state", (_e, d) => f(d)),
   onRunExport: f => ipcRenderer.on("run-export", () => f()),
   pathOf: file => { try { return webUtils.getPathForFile(file); } catch { return ""; } }
 });

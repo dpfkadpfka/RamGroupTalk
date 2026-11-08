@@ -226,6 +226,9 @@ body{margin:0}
 .cd .b{font-size:.84rem}
 .sbar{position:fixed;left:0;right:0;bottom:0;height:var(--sb);display:flex;align-items:center;gap:16px;padding:0 14px;background:var(--side);border-top:1px solid var(--line);font-size:.74rem;color:var(--muted);z-index:55}
 .sbar .sp2{flex:1}
+.updbtn{height:20px;border:0;border-radius:999px;padding:0 10px;background:var(--acc);color:var(--onacc,#fff);font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;animation:updpulse 2s ease-in-out 3}
+.updbtn:hover{filter:brightness(1.08)}
+@keyframes updpulse{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 25%,transparent)}}
 .toast{bottom:calc(var(--sb) + 16px)}
 .job{bottom:calc(var(--sb) + 14px)}
 @media (max-width:860px){.tb .brand{width:auto}.tb .brand b{display:none}.app{grid-template-columns:minmax(0,1fr)}.side{height:auto!important;display:block!important;overflow:visible}
@@ -433,7 +436,7 @@ body{margin:0}
     <div class="board" id="board"><div class="empty"><b>불러오는 중</b>정리한 내용을 가져오고 있어요.</div></div>
   </section>
 </div>
-<footer class="sbar"><span id="status">준비됨</span><span class="sp2"></span><span id="sbcount"></span><span id="sbver"></span></footer>
+<footer class="sbar"><span id="status">준비됨</span><span class="sp2"></span><button type="button" id="updbtn" class="updbtn" hidden></button><span id="sbcount"></span><span id="sbver"></span></footer>
 <div class="toast" id="toast" hidden></div>
 <div class="modal" id="setmodal" hidden><div class="box set">
   <aside class="stabs" role="tablist">
@@ -996,6 +999,14 @@ $("s-save").onclick=async()=>{
   $("setmodal").hidden=true;syncPin();toast("설정을 저장했어요");
 };
 RT.getConf().then(c=>{if(!c.rooms.length||!c.hasKey)setTimeout(openSettings,600);});
+// 새 버전 알림: 아래 상태 표시줄에 버튼
+let updMode="";
+function updShow(d){const b=$("updbtn");if(!d||!d.state)return;
+  if(d.state==="ready"){updMode="ready";b.textContent=`새 버전 ${d.version} — 지금 업데이트`;b.title="누르면 다시 시작하면서 업데이트해요. 그냥 두면 앱을 끌 때 설치돼요.";b.hidden=false;toast(`새 버전 ${d.version}이 준비됐어요. 아래 [지금 업데이트]를 누르세요`);}
+  else if(d.state==="updated"){updMode="notes:"+d.version;b.textContent=`${d.version}로 업데이트됨 — 바뀐 점 보기`;b.title="";b.hidden=false;setTimeout(()=>{if(updMode.startsWith("notes"))b.hidden=true;},60000);}}
+RT.onUpd&&RT.onUpd(updShow);
+RT.updGet&&RT.updGet().then(r=>{if(r&&r.ready)updShow({state:"ready",version:r.ready});});
+$("updbtn").onclick=()=>{if(updMode==="ready")RT.updInstall();else if(updMode.startsWith("notes:")){RT.updNotes(updMode.slice(6));$("updbtn").hidden=true;}};
 
 render();
 (async()=>{
