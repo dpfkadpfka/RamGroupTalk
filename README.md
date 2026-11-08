@@ -5,7 +5,8 @@
   <a href="#03-설치하기">설치하기</a> ·
   <a href="#04-처음-설정">처음 설정</a> ·
   <a href="#07-자주-묻는-질문">자주 묻는 질문</a> ·
-  <a href="CHANGELOG.md">바뀐 점</a>
+  <a href="CHANGELOG.md">바뀐 점</a> ·
+  <a href="https://dpfkadpfka.github.io/apps/guide-ramgrouptalk.pdf">사용 가이드 PDF</a>
 </p>
 
 **RamGroupTalk**은 카카오톡 PC에서 정해 둔 단톡방 대화를 자동으로 저장하고, AI가 **공모전·연수·업무·꿀팁**처럼 필요한 내용만 추려 주제별 카드로 쌓아 주는 윈도우 프로그램이에요. 지난번 이후 새로 올라온 대화만 읽어서 매일 눌러도 겹치지 않아요.
