@@ -129,7 +129,7 @@
 | **4** | 자동으로 설치되고 RamGroupTalk이 켜져요. 바탕화면과 시작 메뉴에 아이콘이 생겨요. |
 
 <p align="center"><img src="docs/readme/install.png" alt="설치 단계: 추가 정보 → 실행 → 설치 끝" width="100%"></p>
-<p align="center"><sub><b>그림 0</b> Windows의 PC 보호 창에서 추가 정보 → 실행</sub></p>
+<p align="center"><sub><b>설치 단계</b> Windows의 PC 보호 창에서 추가 정보 → 실행</sub></p>
 
 > **Windows의 PC 보호** 창은 개인이 만든 앱이라 나오는 안내예요. 설치한 뒤 받은 설치 파일은 지워도 괜찮아요.
 
