@@ -35,15 +35,56 @@ const saveConf = () => writeJson(CONF_FILE, conf);
 
 let win = null, tray = null, quitting = false;
 
+// ---------- 앱 아이콘 (설정에서 6가지 중 고르기, 1번이 기본) ----------
+const iconNo = () => { const n = +conf.appIcon; return n >= 1 && n <= 6 ? n : 1; };
+const iconFile = () => path.join(__dirname, "renderer", "icons", `icon${iconNo()}.ico`);
+// 바로가기·작업 표시줄은 실제 파일이 필요해서(asar 안은 못 읽음) 사용자 폴더에 복사해 씀
+function iconDiskPath() {
+  if (iconNo() === 1 && app.isPackaged) return process.execPath;
+  const dst = path.join(DATA_DIR, `appicon${iconNo()}.ico`);
+  try { if (!fs.existsSync(dst)) { fs.mkdirSync(DATA_DIR, { recursive: true }); fs.writeFileSync(dst, fs.readFileSync(iconFile())); } } catch {}
+  return dst;
+}
+function setTasks() {
+  if (process.platform !== "win32" || !app.isPackaged) return;
+  const ic = iconDiskPath();
+  app.setUserTasks([
+    { program: process.execPath, arguments: "--run-export", iconPath: ic, iconIndex: 0, title: "지금 카톡 가져오기", description: "설정한 단톡방을 저장하고 정리해요" },
+    { program: process.execPath, arguments: "--open-folder", iconPath: ic, iconIndex: 0, title: "저장 폴더 열기", description: "카톡 대화가 저장된 폴더를 열어요" },
+    { program: process.execPath, arguments: "--check-update", iconPath: ic, iconIndex: 0, title: "업데이트 확인", description: "새 버전이 있는지 확인해요" }
+  ]);
+}
+function applyAppIcon(force) {
+  const img = nativeImage.createFromPath(iconFile());
+  if (!img.isEmpty()) { if (win) win.setIcon(img); if (tray) tray.setImage(img.resize({ width: 16, height: 16 })); }
+  if (process.platform !== "win32" || !app.isPackaged) return;
+  const ic = iconDiskPath();
+  try { if (win) win.setAppDetails({ appId: "com.yeram.ramgrouptalk", appIconPath: ic, appIconIndex: 0, relaunchDisplayName: "RamGroupTalk" }); } catch {}
+  setTasks();
+  const ad = process.env.APPDATA || "";
+  const links = [path.join(app.getPath("desktop"), "RamGroupTalk.lnk"),
+    path.join(ad, "Microsoft", "Windows", "Start Menu", "Programs", "RamGroupTalk.lnk"),
+    path.join(ad, "Microsoft", "Internet Explorer", "Quick Launch", "User Pinned", "TaskBar", "RamGroupTalk.lnk")];
+  let changed = false;
+  for (const l of links) {
+    try {
+      if (!fs.existsSync(l)) continue;
+      const cur = shell.readShortcutLink(l);
+      if ((cur.icon || cur.target) !== ic) { shell.writeShortcutLink(l, "update", { icon: ic, iconIndex: 0 }); changed = true; }
+    } catch {}
+  }
+  if (changed || force) execFile(path.join(process.env.WINDIR || "C:\\Windows", "System32", "ie4uinit.exe"), ["-show"], { windowsHide: true }, () => {});
+}
+
 function createWindow() {
   const wa = screen.getPrimaryDisplay().workArea;
   const b = conf.bounds || { width: 1100, height: 760, x: wa.x + wa.width - 1120, y: wa.y + 20 };
   win = new BrowserWindow({
     ...b, minWidth: 420, minHeight: 360, frame: false, show: false,
-    backgroundColor: "#f6f7f9", alwaysOnTop: conf.alwaysOnTop, title: "RamGroupTalk", icon: path.join(__dirname, "renderer", process.platform === "win32" ? "icon.ico" : "icon.png"),
+    backgroundColor: "#f6f7f9", alwaysOnTop: conf.alwaysOnTop, title: "RamGroupTalk", icon: iconFile(),
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false }
   });
-  if (process.platform === "win32") { try { win.setAppDetails({ appId: "com.yeram.ramgrouptalk", appIconPath: app.isPackaged ? process.execPath : path.join(__dirname, "renderer", "icon.ico"), appIconIndex: 0, relaunchDisplayName: "RamGroupTalk" }); } catch {} }
+  if (process.platform === "win32") { try { win.setAppDetails({ appId: "com.yeram.ramgrouptalk", appIconPath: iconDiskPath(), appIconIndex: 0, relaunchDisplayName: "RamGroupTalk" }); } catch {} }
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
   win.once("ready-to-show", () => win.show());
   win.on("focus", () => { if (Date.now() - lastSync > 30000) scheduleSync(500); });
@@ -55,7 +96,7 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, "renderer", process.platform === "win32" ? "icon.ico" : "icon.png"));
+  const icon = nativeImage.createFromPath(iconFile());
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon.resize({ width: 16, height: 16 }));
   if (icon.isEmpty()) app.getFileIcon(process.execPath, { size: "small" }).then(i => tray.setImage(i)).catch(() => {});
   tray.setToolTip("RamGroupTalk");
@@ -140,8 +181,10 @@ ipcMain.handle("conf:get", () => ({ ...conf, gRefresh: undefined, gClientSecret:
 ipcMain.handle("conf:set", (_e, patch) => {
   if (patch.geminiKey === undefined || String(patch.geminiKey).startsWith("••••")) delete patch.geminiKey;
   delete patch.gRefresh;
+  const iconChanged = patch.appIcon !== undefined && +patch.appIcon !== iconNo();
   conf = { ...conf, ...patch };
   saveConf();
+  if (iconChanged) applyAppIcon(true);
   if (win) win.setAlwaysOnTop(!!conf.alwaysOnTop);
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: !!conf.openAtLogin });
   return true;
@@ -367,11 +410,7 @@ app.whenReady().then(() => {
     setupUpdater(); checkUpdate(false);
     scheduleSync(3000);
     setInterval(() => checkUpdate(false), 6 * 60 * 60 * 1000);
-    if (process.platform === "win32") app.setUserTasks([
-      { program: process.execPath, arguments: "--run-export", iconPath: process.execPath, iconIndex: 0, title: "지금 카톡 가져오기", description: "설정한 단톡방을 저장하고 정리해요" },
-      { program: process.execPath, arguments: "--open-folder", iconPath: process.execPath, iconIndex: 0, title: "저장 폴더 열기", description: "카톡 대화가 저장된 폴더를 열어요" },
-      { program: process.execPath, arguments: "--check-update", iconPath: process.execPath, iconIndex: 0, title: "업데이트 확인", description: "새 버전이 있는지 확인해요" }
-    ]);
+    applyAppIcon(false);
   }
 });
 app.on("before-quit", () => { quitting = true; });
