@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld("ramtalk", {
   syncNow: () => ipcRenderer.invoke("sync:now"),
   onRemote: f => ipcRenderer.on("data:remote", (_e, d) => f(d)),
   onSyncState: f => ipcRenderer.on("sync:state", (_e, d) => f(d)),
-  runExport: () => ipcRenderer.invoke("export:run"),
+  runExport: only => ipcRenderer.invoke("export:run", only),
   readFile: p => ipcRenderer.invoke("file:read", p),
   testKey: (key, model) => ipcRenderer.invoke("key:test", key, model),
   exportBackup: () => ipcRenderer.invoke("backup:export"),

@@ -135,13 +135,14 @@ function cancelExport() {
   killT = setTimeout(() => { if (exportProc && exportProc.pid === pid) execFile("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true }, () => {}); }, 6000);
   return true;
 }
-function runExport() {
+function runExport(only) {
+  const list = Array.isArray(only) && only.length ? only.map(String) : conf.rooms;
   return new Promise(resolve => {
     if (process.platform !== "win32") return resolve({ ok: false, error: "윈도우에서만 쓸 수 있어요" });
-    if (!conf.rooms.length) return resolve({ ok: false, error: "설정에서 가져올 단톡방 이름을 먼저 넣어 주세요" });
+    if (!list.length) return resolve({ ok: false, error: "설정에서 가져올 단톡방 이름을 먼저 넣어 주세요" });
     fs.mkdirSync(conf.exportDir, { recursive: true });
     const roomsFile = path.join(DATA_DIR, "rooms.json");
-    fs.writeFileSync(roomsFile, JSON.stringify(conf.rooms), "utf8");
+    fs.writeFileSync(roomsFile, JSON.stringify(list), "utf8");
     const startedAt = Date.now();
     const resultFile = path.join(DATA_DIR, "export-result.json");
     try { fs.unlinkSync(resultFile); } catch {}
@@ -202,7 +203,7 @@ ipcMain.handle("folder:pick", async (_e, cur) => {
   return r.canceled || !r.filePaths[0] ? "" : r.filePaths[0];
 });
 ipcMain.handle("app:ver", () => app.getVersion());
-ipcMain.handle("export:run", () => runExport());
+ipcMain.handle("export:run", (_e, only) => runExport(only));
 ipcMain.handle("export:cancel", () => cancelExport());
 ipcMain.handle("file:read", (_e, p) => fs.readFileSync(p, "utf8"));
 ipcMain.handle("ai:json", async (_e, prompt) => {
