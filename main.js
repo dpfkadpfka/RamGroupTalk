@@ -86,7 +86,7 @@ function createWindow() {
   });
   if (process.platform === "win32") { try { win.setAppDetails({ appId: "com.yeram.ramgrouptalk", appIconPath: iconDiskPath(), appIconIndex: 0, relaunchDisplayName: "RamGroupTalk" }); } catch {} }
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
-  win.once("ready-to-show", () => win.show());
+  win.once("ready-to-show", () => { if (conf.reopenHidden) { conf.reopenHidden = false; saveConf(); } else win.show(); });
   win.on("focus", () => { if (Date.now() - lastSync > 30000) scheduleSync(500); });
   const remember = () => { if (!win.isMinimized() && !win.isMaximized()) { conf.bounds = win.getBounds(); saveConf(); } };
   win.on("moved", remember); win.on("resized", remember);
@@ -192,6 +192,7 @@ ipcMain.handle("conf:set", (_e, patch) => {
   conf = { ...conf, ...patch };
   saveConf();
   if (iconChanged) applyAppIcon(true);
+  if (patch.autoApply === true && updReady) startAutoApply();
   if (win) win.setAlwaysOnTop(!!conf.alwaysOnTop);
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: !!conf.openAtLogin });
   return true;
@@ -390,7 +391,19 @@ function notify(title, body, onClick) {
     n.show(); return true;
   } catch { return false; }
 }
-function installUpdate() { if (!updReady || !autoUpdater) return; quitting = true; autoUpdater.quitAndInstall(false, true); }
+function installUpdate(silent) { if (!updReady || !autoUpdater) return; quitting = true; try { if (win) { conf.bounds = win.getBounds(); conf.reopenHidden = !win.isVisible(); saveConf(); } } catch {} autoUpdater.quitAndInstall(!!silent, true); }
+// 받아 둔 새 버전을 앱을 안 쓸 때 저절로 설치(조용히 설치 후 다시 켜짐)
+let rendererBusy = false, applyTimer = null;
+ipcMain.on("app:busy", (_e, b) => { rendererBusy = !!b; });
+function startAutoApply() {
+  if (applyTimer || conf.autoApply === false) return;
+  applyTimer = setInterval(() => {
+    if (!updReady || exportProc || rendererBusy) return;
+    let idle = 0; try { idle = powerMonitor.getSystemIdleTime(); } catch {}
+    const notLooking = !win || !win.isVisible() || win.isMinimized() || !win.isFocused();
+    if ((notLooking && idle >= 60) || idle >= 300) { clearInterval(applyTimer); applyTimer = null; installUpdate(true); }
+  }, 30 * 1000);
+}
 function setupUpdater() {
   if (!autoUpdater) return;
   autoUpdater.autoDownload = true; autoUpdater.autoInstallOnAppQuit = true;
@@ -404,8 +417,10 @@ function setupUpdater() {
       const r = await msg(`새 버전 ${i.version} 준비 완료`, "지금 다시 시작해서 업데이트할까요?", ["지금 업데이트", "나중에(끌 때 자동 설치)"]);
       if (r.response === 0) installUpdate();
     } else if (first) {
-      notify(`RamGroupTalk ${i.version} 업데이트가 준비됐어요`, "알림을 누르면 바로 업데이트해요. 그냥 두면 앱을 끌 때 설치돼요.", () => installUpdate());
+      if (conf.autoApply === false) notify(`RamGroupTalk ${i.version} 업데이트가 준비됐어요`, "알림을 누르면 바로 업데이트해요. 그냥 두면 앱을 끌 때 설치돼요.", () => installUpdate());
+      else notify(`RamGroupTalk ${i.version} 업데이트가 준비됐어요`, "앱을 쓰지 않을 때 저절로 설치하고 다시 켜 둘게요. 지금 하려면 알림을 누르세요.", () => installUpdate());
     }
+    startAutoApply();
   });
   autoUpdater.on("error", e => { if (updManual) msg("업데이트를 확인하지 못했어요", String(e && e.message || e).slice(0, 200)); updBusy = false; updManual = false; });
   // 자주 확인: 30분마다, 절전에서 깨어날 때, 창을 다시 볼 때(30분 지났으면)

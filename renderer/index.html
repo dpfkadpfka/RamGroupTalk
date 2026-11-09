@@ -484,6 +484,7 @@ body{margin:0}
       <div class="fld"><b>주제 색</b><small>왼쪽 주제 이름 앞 색 네모를 누르면 바꿀 수 있어요. 주제와 카드는 끌어서 순서를 바꿔요.</small></div>
       <label class="chk"><input type="checkbox" id="s-top">항상 다른 창 위에 두기</label>
       <label class="chk"><input type="checkbox" id="s-login">윈도우 켤 때 자동 실행</label>
+      <label class="chk"><input type="checkbox" id="s-autoupd">새 버전은 앱을 쓰지 않을 때 저절로 설치하기 <small style="font-weight:500;color:var(--muted)">— 잠깐 꺼졌다가 다시 켜져요</small></label>
       <label class="chk"><input type="checkbox" id="s-tray">닫기(✕) 눌러도 트레이에서 계속 실행 <small style="font-weight:500;color:var(--muted)">— 매일 자동 가져오기를 쓰면 켜 두세요</small></label>
     </section>
     <section class="spn" data-pane="data" hidden>
@@ -721,6 +722,9 @@ JSON 배열로만 답하라. 예:
 ${r.body}`;
 }
 async function importFiles(files,keepPanel){
+  try{window.ramtalk&&window.ramtalk.setBusy(true);return await importFiles0(files,keepPanel);}finally{window.ramtalk&&window.ramtalk.setBusy(false);}
+}
+async function importFiles0(files,keepPanel){
   files=[...files].filter(f=>/\.txt$/i.test(f.name)||f.type==="text/plain");
   if(!files.length){toast("카톡 내보내기 txt 파일만 올릴 수 있어요");return;}
   if(!db||!state.canWrite){toast("편집 권한이 있어야 올릴 수 있어요");return;}
@@ -867,7 +871,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&exporting)autoExport(
 async function openSettings(){
   const c=await RT.getConf();
   $("s-rooms").value=(c.rooms||[]).join("\n");$("s-key").value=c.geminiKey||"";$("s-time").value=c.dailyTime||"";
-  $("s-dir").value=c.exportDir||"";$("s-top").checked=!!c.alwaysOnTop;$("s-login").checked=!!c.openAtLogin;$("s-tray").checked=!!c.closeToTray;$("s-model").value=c.model||"";$("s-keymsg").textContent="";
+  $("s-dir").value=c.exportDir||"";$("s-top").checked=!!c.alwaysOnTop;$("s-login").checked=!!c.openAtLogin;$("s-tray").checked=!!c.closeToTray;$("s-autoupd").checked=c.autoApply!==false;$("s-model").value=c.model||"";$("s-keymsg").textContent="";
   look=lookFrom(c);lookRender();iconSel=+c.appIcon||1;iconRender();segSet("s-digest",c.digestMode==="core"?"core":"wide");
   showTab(!c.rooms.length?"kakao":!c.hasKey?"ai":"kakao");gSync();
   $("setmodal").hidden=false;
@@ -1016,7 +1020,7 @@ $("s-keyok").onclick=async()=>{
 $("s-save").onclick=async()=>{
   const rooms=$("s-rooms").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   DIGEST_MODE=segGet("s-digest")==="core"?"core":"wide";
-  await RT.setConf({...look,digestMode:DIGEST_MODE,appIcon:iconSel,accent:accSel,theme:look.theme||"auto",fontSize:+(look.fontSize||15),rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,closeToTray:$("s-tray").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
+  await RT.setConf({autoApply:$("s-autoupd").checked,...look,digestMode:DIGEST_MODE,appIcon:iconSel,accent:accSel,theme:look.theme||"auto",fontSize:+(look.fontSize||15),rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,closeToTray:$("s-tray").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
   $("setmodal").hidden=true;syncPin();toast("설정을 저장했어요");
 };
 RT.getConf().then(c=>{DIGEST_MODE=c.digestMode==="core"?"core":"wide";if(!c.rooms.length||!c.hasKey)setTimeout(openSettings,600);});
