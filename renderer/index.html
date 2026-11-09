@@ -457,6 +457,8 @@ body{margin:0}
     <section class="spn" data-pane="ai" hidden>
       <h4>AI 요약</h4>
       <label>제미나이 API 키 (무료)<small>구글 계정으로 무료 발급: <button class="lnk" type="button" id="s-keylink">aistudio.google.com/apikey</button> 에서 [Create API key] → 복사해서 붙여 넣고 [확인]. 무료 등급은 구글이 서비스 개선에 입력 내용을 쓸 수 있어요.</small><span class="row"><input type="password" id="s-key" placeholder="AIza..."><button class="btn pri" type="button" id="s-keyok">확인</button></span><small id="s-keymsg" class="kmsg"></small></label>
+<div class="fld"><b>정리 범위</b><small><b>넉넉하게</b>: 소소한 팁·이벤트·추천·질문과 답까지 챙겨요(기본). <b>핵심만</b>: 마감 있는 일정과 꼭 필요한 안내만.</small><div class="seg" id="s-digest"><button type="button" data-v="wide">넉넉하게</button><button type="button" data-v="core">핵심만</button></div></div>
+      <div class="fld"><b>다시 정리하기</b><small>이미 정리한 기간도 지금 범위로 다시 읽어요. 카톡에서 대화를 다시 저장해 정리하고, 이미 있는 카드와 같은 내용은 건너뛰어요.</small><span class="row"><select id="s-redo"><option value="1">오늘 대화</option><option value="3">최근 3일</option><option value="7">최근 7일</option><option value="14">최근 14일</option></select><button class="btn" type="button" id="s-redobtn">다시 정리</button></span></div>
       <label>AI 모델<small>보통은 바꿀 필요 없어요.</small><input type="text" id="s-model"></label>
     </section>
     <section class="spn" data-pane="gcal" hidden>
@@ -540,7 +542,7 @@ body{margin:0}
 })();
 </script>
 <script>
-const ROOM_ORDER=["공모전","강의·연수","교사 업무","혜택·이벤트","AI 영상","AI 도구","기타"];
+const ROOM_ORDER=["공모전","강의·연수","교사 업무","혜택·이벤트","AI 영상","AI 도구","꿀팁·소식","기타"];
 const PALETTE=["#3b82f6","#2563eb","#0ea5e9","#06b6d4","#14b8a6","#10b981","#22c55e","#84cc16","#8b5cf6","#a855f7","#d946ef","#ec4899","#f43f5e","#ef4444","#f97316","#ea580c","#78716c","#475569"];
 const DEFAULT={"공모전":"#ec4899","강의·연수":"#14b8a6","교사 업무":"#3b82f6","혜택·이벤트":"#f97316","AI 영상":"#8b5cf6","AI 도구":"#0ea5e9","기타":"#78716c"};
 const I={
@@ -654,6 +656,7 @@ document.addEventListener("click",async e=>{
   }catch(err){toast(err&&err.code==="invalid_argument"?"편집 권한이 있는 사람만 바꿀 수 있어요":"저장하지 못했어요. 잠시 뒤 다시 눌러 주세요");}
 });
 
+let DIGEST_MODE="wide";
 const KW=/https?:\/\/|마감|신청|모집|공모|연수|무료|출시|공지|안내|선착순|이벤트|할인|업데이트|스킬|추천|꿀팁|팁|강의|웨비나|라이브|설문|링크|기한|제출|공문|접수|채용|강사/;
 function parseKakao(txt,progress){
   const lines=txt.replace(/\r/g,"").split("\n");
@@ -673,7 +676,8 @@ function parseKakao(txt,progress){
     else if(msgs.length&&l&&!/님이 (들어왔|나갔)습니다/.test(l))msgs[msgs.length-1].text+="\n"+l;
   }
   const fresh=msgs.filter(m=>m.when>since);
-  const keep=fresh.filter(m=>m.text.length>=60||KW.test(m.text)).map(m=>`${m.when.slice(5)} [${m.who}] ${m.text.slice(0,700)}`);
+  const NOISE=/^(?:[ㅋㅎㅠㅜㄷㄱㅇ~!?.\s]+|사진|동영상|이모티콘|파일:.*|(?:네|넵|넹|예|오|와|헐|대박|좋아요|좋네요|감사(?:합니다|해요)?|고맙습니다|고마워요|안녕하세요|안녕하십니까|반갑습니다|수고하셨습니다|수고하세요|축하(?:드려요|합니다)?)[~!.ㅎㅋㅠ^\s]*)$/;
+  const keep=fresh.filter(m=>{const t=m.text.trim();if(!t||NOISE.test(t))return false;return DIGEST_MODE==="core"?(t.length>=60||KW.test(t)):(t.length>=4||KW.test(t));}).map(m=>`${m.when.slice(5)} [${m.who}] ${m.text.slice(0,700)}`);
   let body=keep.join("\n");
   const CAP=150000;
   if(body.length>CAP)body=body.slice(body.length-CAP);
@@ -685,17 +689,29 @@ let sampleFn=null;
 function jobRow(name){const li=document.createElement("li");li.innerHTML=`<b>${esc(name)}</b><span>읽는 중…</span>`;$("joblist").appendChild(li);$("job").hidden=false;return {set:(t,cls)=>{li.querySelector("span").textContent=t;li.className=cls||"";}};}
 function buildPrompt(r,topics){
   const year=(r.saved||new Date().toISOString()).slice(0,4);
-  return `너는 초등교사 김예람(AI 영상·바이브코딩 연수 강사, 2학년 담임, 과학정보부 담당)을 위해 카카오톡 단톡방 대화에서 필요한 정보만 추리는 비서다.
-아래는 '${r.room}' 방의 ${r.since} 이후 대화다(짧은 잡담은 미리 걸러 냄). 날짜는 월-일 시:분, 연도는 ${year}년.
-
-뽑을 것:
+  const wide=DIGEST_MODE!=="core";
+  const pick=wide?`뽑을 것(놓치지 말고 넉넉하게 — 애매하면 넣는다):
+- 공모전·모집·신청·설문·출강·강사 모집(마감이 있으면 꼭 적기)
+- 이벤트·경품·무료 나눔·할인·쿠폰·체험단 — 마감이 없어도 넣기
+- 교사 업무에 영향 있는 안내(SW 심의, 계정, 공문, 연수, 정책 변화)
+- AI 도구·앱·사이트·스킬·업데이트·출시 소식
+- 소소한 꿀팁: 짧은 한 줄 팁, 단축키, 설정 방법, 프롬프트, 수업 아이디어, 자료 공유도 넣기
+- 질문과 답: 답이 달렸으면 질문+답을 합쳐 한 항목으로(누가 어떤 방법을 추천했는지 구체적으로). AI 영상 제작 팁은 도구 이름·수치까지 빠짐없이
+- 볼만한 TV·유튜브·영상·책·기사·강의 추천, 업계 소식·재미있는 정보
+뺄 것: 인사·감사·축하·리액션, 순수 잡담, 정치·시사 논쟁, 개인 신상 이야기, 이미 마감이 지난 것.`
+  :`뽑을 것(꼭 필요한 것만):
 - 마감이 있는 공모전·모집·신청·이벤트(마감일을 꼭 적기)
 - 교사 업무에 영향 있는 안내(SW 심의, 계정, 공문, 연수, 출강·강사 모집)
 - 쓸 만한 AI 도구·스킬·업데이트 소식
 - 실제로 써먹을 수 있는 꿀팁. 특히 AI 영상 제작 팁은 질문과 여러 사람의 답을 합쳐 구체적인 방법·도구 이름·수치까지 빠짐없이 정리
-뺄 것: 인사, 잡담, 정치·시사 논쟁, 자기 작품 홍보나 피드백 요청, 이미 마감이 지난 것, 답이 없는 단순 질문, 개인 신상 이야기.
-비슷한 이야기는 한 항목으로 합친다. 없으면 빈 배열.
+뺄 것: 인사, 잡담, 정치·시사 논쟁, 자기 작품 홍보나 피드백 요청, 이미 마감이 지난 것, 답이 없는 단순 질문, 개인 신상 이야기.`;
+  return `너는 초등교사 김예람(AI 영상·바이브코딩 연수 강사, 2학년 담임, 과학정보부 담당)을 위해 카카오톡 단톡방 대화를 정리하는 비서다.
+아래는 '${r.room}' 방의 ${r.since} 이후 대화다(인사·리액션 같은 잡음은 미리 걸러 냄). 날짜는 월-일 시:분, 연도는 ${year}년.
+
+${pick}
+같은 이야기는 한 항목으로 합친다. 없으면 빈 배열.
 topic은 다음 중에서 고르고, 정말 맞는 게 없을 때만 짧은 새 주제를 만든다: ${topics.join(", ")}
+(이벤트·경품·할인·무료는 '혜택·이벤트', 짧은 팁·추천·소식은 내용에 맞는 주제 또는 '꿀팁·소식')
 title은 짧은 명사형 제목, body는 한두 문장 메모체(존댓말 아님), link는 대화에 나온 URL을 그대로(없으면 ""), 절대 지어내지 말 것.
 
 JSON 배열로만 답하라. 예:
@@ -729,8 +745,12 @@ async function importFiles(files,keepPanel){
         items=Array.isArray(out)?out.filter(x=>x&&x.title):[];
       }
       const stamp=Date.now().toString(36);
-      let n=0;
+      let n=0,dup=0;
+      const bg=t=>{t=String(t||"").replace(/\s+/g,"").toLowerCase();const a=new Set();for(let i=0;i<t.length-1;i++)a.add(t.slice(i,i+2));return a;};
+      const simi=(a,b)=>{if(!a.size||!b.size)return 0;let k=0;a.forEach(x=>{if(b.has(x))k++;});return k/Math.min(a.size,b.size);};
+      const have=state.items.filter(x=>x.src===r.room).map(x=>bg(x.title));
       for(const it of items){
+        const tb=bg(it.title);if(tb.size>=3&&have.some(h=>simi(h,tb)>=0.75)){dup++;continue;}have.push(tb);
         n++;
         await db.collection("items").doc(`${bstr.replace(/-/g,"")}-${stamp}-${n}`).set({
           batch:bstr,topic:String(it.topic||"기타").slice(0,20),room:r.room,order:n,status:"active",
@@ -742,7 +762,7 @@ async function importFiles(files,keepPanel){
       }
       if(r.saved)prog.rooms[r.room]=r.saved;
       await pref.set(prog);
-      row.set(n?`${r.room} · ${n}개 추가했어요`:`${r.room} · 새로 챙길 소식이 없어요`,"ok");
+      row.set(n?`${r.room} · ${n}개 추가했어요${dup?` (이미 있던 ${dup}개 건너뜀)`:""}`:(dup?`${r.room} · 새 소식 없음 (이미 있던 ${dup}개 건너뜀)`:`${r.room} · 새로 챙길 소식이 없어요`),"ok");
     }catch(e){
       const m={no_key:"설정에서 제미나이 키를 먼저 넣어 주세요",bad_key:"제미나이 키가 맞지 않아요. 설정에서 다시 넣어 주세요",not_granted:"AI 사용 권한이 없어요",rate_limited:"잠시 뒤 다시 올려 주세요",prompt_too_large:"파일이 너무 커요",invalid_json:"정리 결과를 읽지 못했어요. 다시 올려 주세요",refused:"이 대화는 정리하지 못했어요"};
       row.set(m[e&&e.code]||"정리하지 못했어요. 다시 올려 주세요","err");
@@ -848,7 +868,7 @@ async function openSettings(){
   const c=await RT.getConf();
   $("s-rooms").value=(c.rooms||[]).join("\n");$("s-key").value=c.geminiKey||"";$("s-time").value=c.dailyTime||"";
   $("s-dir").value=c.exportDir||"";$("s-top").checked=!!c.alwaysOnTop;$("s-login").checked=!!c.openAtLogin;$("s-tray").checked=!!c.closeToTray;$("s-model").value=c.model||"";$("s-keymsg").textContent="";
-  look=lookFrom(c);lookRender();iconSel=+c.appIcon||1;iconRender();
+  look=lookFrom(c);lookRender();iconSel=+c.appIcon||1;iconRender();segSet("s-digest",c.digestMode==="core"?"core":"wide");
   showTab(!c.rooms.length?"kakao":!c.hasKey?"ai":"kakao");gSync();
   $("setmodal").hidden=false;
 }
@@ -995,10 +1015,21 @@ $("s-keyok").onclick=async()=>{
 };
 $("s-save").onclick=async()=>{
   const rooms=$("s-rooms").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  await RT.setConf({...look,appIcon:iconSel,accent:accSel,theme:look.theme||"auto",fontSize:+(look.fontSize||15),rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,closeToTray:$("s-tray").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
+  DIGEST_MODE=segGet("s-digest")==="core"?"core":"wide";
+  await RT.setConf({...look,digestMode:DIGEST_MODE,appIcon:iconSel,accent:accSel,theme:look.theme||"auto",fontSize:+(look.fontSize||15),rooms,geminiKey:$("s-key").value.trim(),dailyTime:$("s-time").value,exportDir:$("s-dir").value.trim(),alwaysOnTop:$("s-top").checked,openAtLogin:$("s-login").checked,closeToTray:$("s-tray").checked,model:$("s-model").value.trim()||"gemini-flash-latest"});
   $("setmodal").hidden=true;syncPin();toast("설정을 저장했어요");
 };
-RT.getConf().then(c=>{if(!c.rooms.length||!c.hasKey)setTimeout(openSettings,600);});
+RT.getConf().then(c=>{DIGEST_MODE=c.digestMode==="core"?"core":"wide";if(!c.rooms.length||!c.hasKey)setTimeout(openSettings,600);});
+$("s-digest").addEventListener("click",e=>{const b=e.target.closest("button");if(b)segSet("s-digest",b.dataset.v);});
+$("s-redobtn").onclick=async()=>{
+  if(exporting)return;const days=+$("s-redo").value||1;
+  const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-(days-1));
+  const since=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} 00:00`;
+  try{const pref=db.doc("meta/progress");const sn=await pref.get();const prog=sn.exists?{...sn.data()}:{};const rooms={...(prog.rooms||{})};
+    for(const k of Object.keys(rooms))if(rooms[k]>since)rooms[k]=since;prog.rooms=rooms;await pref.set(prog);}catch{toast("다시 정리를 준비하지 못했어요");return;}
+  DIGEST_MODE=segGet("s-digest")==="core"?"core":"wide";await RT.setConf({digestMode:DIGEST_MODE});
+  $("setmodal").hidden=true;toast(days===1?"오늘 대화를 다시 정리해요":`최근 ${days}일 대화를 다시 정리해요`);autoExport();
+};
 // 새 버전 알림: 아래 상태 표시줄에 버튼
 let updMode="";
 function updShow(d){const b=$("updbtn");if(!d||!d.state)return;

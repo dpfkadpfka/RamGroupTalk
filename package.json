@@ -1,7 +1,7 @@
 {
   "name": "ramgrouptalk",
   "productName": "RamGroupTalk",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "RamGroupTalk",
   "author": "김예람",
   "main": "main.js",
