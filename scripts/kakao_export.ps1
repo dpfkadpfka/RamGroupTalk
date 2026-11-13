@@ -95,7 +95,23 @@ function FindRoom($name) {
 # 저장된 파일 찾기: 정한 이름이 있으면 그것, 없으면 저장 폴더에서 이번에 새로 생긴 txt
 function FindOut($p, $since) {
   if (Test-Path -LiteralPath $p) { return (Get-Item -LiteralPath $p) }
-  Get-ChildItem -LiteralPath $OutDir -Filter *.txt -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $since.AddSeconds(-5) } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  $f = Get-ChildItem -LiteralPath $OutDir -Filter *.txt -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $since.AddSeconds(-5) } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if ($f) { return $f }
+  # 카톡이 다른 폴더(문서·다운로드·바탕화면 등)에 저장했으면 찾아서 저장 폴더로 옮김
+  $dirs = @([Environment]::GetFolderPath("MyDocuments"), [Environment]::GetFolderPath("Desktop"), (Join-Path $env:USERPROFILE "Downloads"), (Join-Path $env:USERPROFILE "Documents"))
+  if ($env:OneDrive) { $dirs += @((Join-Path $env:OneDrive "Documents"), (Join-Path $env:OneDrive "문서"), (Join-Path $env:OneDrive "Desktop"), (Join-Path $env:OneDrive "바탕 화면")) }
+  foreach ($d in ($dirs | Select-Object -Unique)) {
+    if (-not $d -or -not (Test-Path -LiteralPath $d)) { continue }
+    foreach ($sub in @($d, (Join-Path $d "카카오톡 받은 파일"), (Join-Path $d "KakaoTalk Downloads"))) {
+      if (-not (Test-Path -LiteralPath $sub)) { continue }
+      $g = Get-ChildItem -LiteralPath $sub -Filter "KakaoTalk*.txt" -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $since.AddSeconds(-5) } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+      if ($g) {
+        $dest = Join-Path $OutDir $g.Name
+        try { Move-Item -LiteralPath $g.FullName -Destination $dest -Force; $script:dbg += "다른 폴더에서 찾아 옮김: " + $g.FullName; return (Get-Item -LiteralPath $dest) } catch { return $g }
+      }
+    }
+  }
+  return $null
 }
 # 완료 창의 [확인] 버튼이 노란색으로 바뀌었는지 화면 색으로 확인 → 노란 버튼 가운데 좌표를 돌려줌
 function YellowOk($wh) {
@@ -132,6 +148,15 @@ function MainFocus {
   $m = MainWin; if (-not $m) { return $null }
   $h = [IntPtr][long]$m[0]; [W32]::ShowWindow($h, 9) | Out-Null; Start-Sleep -Milliseconds 150; Focus $h
   if ([W32]::GetForegroundWindow() -ne $h) { return $null }; return $h
+}
+# 링크 경고("주의") 같은 작은 안내창이 뜨면 [취소](ESC)로 닫기
+function ClosePopups($before, $keep) {
+  $n = 0
+  foreach ($w in @(KWins | Where-Object { $before -notcontains $_[0] -and $_[0] -ne $keep -and $_[3] -like "EVA_Window*" })) {
+    $r = New-Object W32+RECT; [W32]::GetWindowRect([IntPtr][long]$w[0], [ref]$r) | Out-Null
+    if (($r.R - $r.L) -lt 700 -and ($r.B - $r.T) -lt 500) { Focus ([IntPtr][long]$w[0]); [System.Windows.Forms.SendKeys]::SendWait("{ESC}"); Start-Sleep -Milliseconds 250; $n++ }
+  }
+  if ($n) { $script:dbg += "안내창 닫음 $n" }
 }
 function Scale($h) { $s = [W32]::GetDpiForWindow($h) / 96.0; if ($s -le 0) { $s = 1 }; return $s }
 function ClickIn($h, $rx, $ry, [switch]$FromRight, [switch]$Double) {
@@ -198,14 +223,15 @@ foreach ($room in $rooms) {
     if (-not $hit) {
       $hit = TryOpen $name
       ClearSearch
-      if (-not $hit) { $result.errors += @{ room = $name; msg = "방을 찾지 못했어요(이름이 카톡 방 이름과 똑같은지 확인)" }; continue }
+      if (-not $hit) { $result.errors += @{ room = $name; msg = "카톡에서 이 방을 못 찾았어요 — 설정에 적은 방 이름이 맞는지 확인해 주세요" }; continue }
       $openedByMe = $true
       Start-Sleep -Milliseconds 1200   # 방이 다 열릴 때까지
     }
     $h = [IntPtr][long]$hit[0]; Focus $h
     $before = @(KWins | ForEach-Object { $_[0] })
     $r = New-Object W32+RECT; [W32]::GetWindowRect($h, [ref]$r) | Out-Null
-    [W32]::Click([int](($r.L + $r.R) / 2), [int]($r.T + ($r.B - $r.T) * 0.35)); Start-Sleep -Milliseconds 200
+    # 대화 내용(링크)은 누르지 않도록: 먼저 클릭 없이 Ctrl+S, 안 되면 창 맨 위 빈 줄만 클릭
+    $topX = [int]($r.L + ($r.R - $r.L) * 0.4); $topY = [int]($r.T + 6 * (Scale $h))
     [W32]::CtrlS()
     $dlg = $null
     for ($i = 0; $i -lt 60 -and -not $dlg; $i++) {
@@ -213,11 +239,12 @@ foreach ($room in $rooms) {
       $d = KWins | Where-Object { $_[3] -eq "#32770" } | Select-Object -First 1
       if ($d) { $dlg = $AE::FromHandle([IntPtr][long]$d[0]) }
     }
-    if (-not $dlg) {   # 한 번 더 시도
-      Focus $h; [W32]::Click([int](($r.L + $r.R) / 2), [int]($r.T + ($r.B - $r.T) * 0.35)); Start-Sleep -Milliseconds 300; [W32]::CtrlS()
+    if (-not $dlg) {   # 한 번 더 시도 (안내창이 떠 있으면 닫고, 창 맨 위 빈 곳만 클릭)
+      ClosePopups $before $hit[0]
+      Focus $h; [W32]::Click($topX, $topY); Start-Sleep -Milliseconds 300; [W32]::CtrlS()
       for ($i = 0; $i -lt 50 -and -not $dlg; $i++) { Start-Sleep -Milliseconds 100; $d = KWins | Where-Object { $_[3] -eq "#32770" } | Select-Object -First 1; if ($d) { $dlg = $AE::FromHandle([IntPtr][long]$d[0]) } }
     }
-    if (-not $dlg) { $result.errors += @{ room = $name; msg = "저장 창이 뜨지 않았어요" }; $script:dbg += "저장 창 없음: " + $hit[2]; continue }
+    if (-not $dlg) { ClosePopups $before $hit[0]; $result.errors += @{ room = $name; msg = "카톡 저장 창이 안 떠서 건너뛰었어요" }; $script:dbg += "저장 창 없음: " + $hit[2]; continue }
     $safe = ($name -replace '[\\/:*?"<>|]', '_')
     $path = Join-Path $OutDir ("KakaoTalk_{0}_{1}.txt" -f $safe, (Get-Date -Format "yyyyMMdd_HHmmss"))
     $dh = [IntPtr]$dlg.Current.NativeWindowHandle
@@ -229,9 +256,9 @@ foreach ($room in $rooms) {
       [System.Windows.Forms.SendKeys]::SendWait("^a{DEL}^v"); Start-Sleep -Milliseconds 250
       [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
     }
-    # 내보내기 끝날 때까지(완료 창 또는 파일 크기 멈춤) 최대 4분
+    # 내보내기 끝날 때까지(완료 창 또는 파일 크기 멈춤) 최대 7분
     $last = -1; $same = 0; $t0 = Get-Date; $popped = $false
-    while (((Get-Date) - $t0).TotalSeconds -lt 240) {
+    while (((Get-Date) - $t0).TotalSeconds -lt 420) {
       Start-Sleep -Milliseconds 250
       if (Stopped) { break }
       $pop = @(KWins | Where-Object { $before -notcontains $_[0] -and $_[3] -eq "EVA_Window_Dblclk" })
@@ -258,7 +285,8 @@ foreach ($room in $rooms) {
     foreach ($w in @(KWins | Where-Object { $_[3] -eq "#32770" })) { Focus ([IntPtr][long]$w[0]); [System.Windows.Forms.SendKeys]::SendWait("{ESC}"); Start-Sleep -Milliseconds 300 }
     $f = FindOut $path $t0
     if ($f) { $result.saved += @{ room = $name; path = $f.FullName } }
-    else { $result.errors += @{ room = $name; msg = "저장이 끝나지 않았어요(대화가 아주 많으면 다시 시도)" } }
+    elseif ($popped) { $result.errors += @{ room = $name; msg = "카톡은 저장했는데 파일을 못 찾았어요 — 저장 폴더를 확인하거나 [다시]를 눌러 주세요" } }
+    else { $result.errors += @{ room = $name; msg = "저장이 7분 안에 안 끝났어요 — [다시]를 눌러 주세요" } }
     [W32]::PostMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null   # 카톡방 닫기
     Start-Sleep -Milliseconds 400
     Save

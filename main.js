@@ -150,7 +150,7 @@ function runExport(only) {
     try { globalShortcut.register("CommandOrControl+Shift+Q", () => cancelExport()); } catch {}
     exportProc = execFile("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-STA", "-File", scriptPath(),
       "-RoomsFile", roomsFile, "-OutDir", conf.exportDir, "-ResultFile", resultFile, "-StopFile", STOP_FILE],
-      { windowsHide: true, timeout: 10 * 60 * 1000 }, (err) => {
+      { windowsHide: true, timeout: 60 * 60 * 1000 }, (err) => {
         exportProc = null; clearTimeout(killT); try { globalShortcut.unregister("CommandOrControl+Shift+Q"); } catch {}
         const res = readJson(resultFile, null);
         if (res) { try { fs.writeFileSync(path.join(conf.exportDir, "가져오기-기록.txt"), [new Date().toLocaleString("ko-KR"), ...(res.errors || []).map(e => "오류: " + e.room + " - " + e.msg), ...(res.debug || [])].join("\r\n"), "utf8"); } catch {} return resolve({ ok: true, ...res }); }
